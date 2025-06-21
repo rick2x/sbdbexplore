@@ -195,12 +195,22 @@ class DatabaseViewer {
 
     async uploadFile(file) {
         // Validate file type
-        const allowedTypes = ['application/vnd.ms-access', 'application/x-msaccess'];
-        const allowedExtensions = ['.mdb', '.accdb'];
+        const allowedTypes = [
+            'application/vnd.ms-access', 
+            'application/x-msaccess', 
+            'application/vnd.sqlite3', 
+            'application/x-sqlite3'
+        ];
+        const allowedExtensions = ['.mdb', '.accdb', '.sqlite', '.db'];
         const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
         
-        if (!allowedExtensions.includes(fileExtension)) {
-            this.showToast('error', 'Invalid File Type', 'Please select a .mdb or .accdb file');
+        let isValidExtension = allowedExtensions.includes(fileExtension);
+        // For files like ".db", also check if the type seems plausible if browser provides it,
+        // though extension check is primary for user feedback.
+        // let isValidMime = file.type && allowedTypes.includes(file.type.toLowerCase());
+
+        if (!isValidExtension) {
+            this.showToast('error', 'Invalid File Type', 'Please select a .mdb, .accdb, .sqlite, or .db file');
             return;
         }
 
@@ -803,7 +813,7 @@ class DatabaseViewer {
                 <h3>How to Use Database Explorer</h3>
                 <div class="help-section">
                     <h4>1. Upload Your Database</h4>
-                    <p>Drag and drop or click to upload .mdb or .accdb files (max 100MB)</p>
+                    <p>Drag and drop or click to upload .mdb, .accdb, .sqlite, or .db files (max 100MB)</p>
                 </div>
                 <div class="help-section">
                     <h4>2. Browse Tables</h4>

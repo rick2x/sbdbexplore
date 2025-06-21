@@ -51,7 +51,7 @@ app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB max file size
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 
 # Allowed extensions
-ALLOWED_EXTENSIONS = {'mdb', 'accdb'}
+ALLOWED_EXTENSIONS = {'mdb', 'accdb', 'sqlite', 'db'}
 
 # Cache for database connections and queries
 connection_cache = OrderedDict()
@@ -135,29 +135,40 @@ def get_db_connection(filepath):
                 pass
         
         # Create new connection
-        try:
-            conn_str = get_connection_string(filepath)
-            conn = pyodbc.connect(conn_str)
-            # Set connection encoding to handle special characters
+        file_ext = filepath.rsplit('.', 1)[-1].lower()
+        conn = None
+
+        if file_ext in ['mdb', 'accdb']:
             try:
-                conn.setdecoding(pyodbc.SQL_CHAR, encoding='utf-8')
-                conn.setdecoding(pyodbc.SQL_WCHAR, encoding='utf-8')
-                conn.setencoding(encoding='utf-8')
-            except Exception as encoding_error:
-                logger.warning(f"Could not set encoding for {filepath}: {encoding_error}")
+                conn_str = get_connection_string(filepath)
+                conn = pyodbc.connect(conn_str)
+                try:
+                    conn.setdecoding(pyodbc.SQL_CHAR, encoding='utf-8')
+                    conn.setdecoding(pyodbc.SQL_WCHAR, encoding='utf-8')
+                    conn.setencoding(encoding='utf-8')
+                except Exception as encoding_error:
+                    logger.warning(f"Could not set encoding for Access DB {filepath}: {encoding_error}")
+                logger.info(f"Successfully connected to Access DB: {filepath}")
+            except Exception as e:
+                logger.error(f"Failed to connect to Access DB {filepath} with pyodbc: {e}")
+                raise 
+        elif file_ext in ['sqlite', 'db']:
+            try:
+                conn = sqlite3.connect(filepath, check_same_thread=False) 
+                logger.info(f"Successfully connected to SQLite DB: {filepath}")
+            except Exception as e:
+                logger.error(f"Failed to connect to SQLite DB {filepath}: {e}")
+                raise
+        else:
+            logger.error(f"Unsupported database type: {file_ext} for file {filepath}")
+            raise ValueError(f"Unsupported database type: {file_ext}")
+
+        if conn:
             connection_cache[filepath] = conn
             return conn
-        except Exception as e:
-            logger.error(f"Failed to connect with pyodbc: {e}")
-            # Fallback to sqlite for .mdb files
-            if filepath.endswith('.mdb'):
-                try:
-                    conn = sqlite3.connect(filepath)
-                    connection_cache[filepath] = conn
-                    return conn
-                except Exception as e2:
-                    logger.error(f"Failed to connect with sqlite: {e2}")
-            raise e
+        else:
+            # This path should ideally not be reached if exceptions are raised above
+            raise ConnectionError(f"Failed to establish database connection for {filepath}")
 
 def get_tables(conn):
     """Get list of tables from database"""
