@@ -164,3 +164,31 @@ TypeError: can only concatenate str (not "int") to str
 2025-06-21 02:46:56,009 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='OrderDetails'
 2025-06-21 02:46:56,019 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
 2025-06-21 02:46:56,046 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:53:34,103 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:53:34,115 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:53:39,988 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:53:39,989 - database - INFO - Retrieved 11 tables for database: 20250621_022923_Car_Database.db
+2025-06-21 02:53:45,485 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_022923_Car_Database.db', table='Car_Vins'
+2025-06-21 02:53:45,489 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:53:46,834 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_022923_Car_Database.db', table='Customer_Ownership'
+2025-06-21 02:53:46,838 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:53:50,003 - database - INFO - Retrieved 10 tables for database: 20250621_023220_Database1_be.accdb
+2025-06-21 02:53:51,881 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='OrderDetails'
+2025-06-21 02:53:51,891 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:53:51,918 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:54:38,135 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='Employees'
+2025-06-21 02:54:38,147 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:54:38,172 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:54:43,227 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='OrderStatus'
+2025-06-21 02:54:43,257 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:54:45,616 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='Orders'
+2025-06-21 02:54:45,647 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:54:54,424 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='Products'
+2025-06-21 02:54:54,475 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:54:58,397 - database - INFO - Retrieved 11 tables for database: 20250621_022923_Car_Database.db
+2025-06-21 02:55:00,134 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_022923_Car_Database.db', table='Brands'
+2025-06-21 02:55:00,137 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:55:01,575 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_022923_Car_Database.db', table='Car_Parts'
+2025-06-21 02:55:01,579 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:55:05,682 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_022923_Car_Database.db', table='Customer_Ownership'
+2025-06-21 02:55:05,686 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.

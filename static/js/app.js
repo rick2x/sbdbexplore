@@ -1124,24 +1124,73 @@ class DatabaseViewer {
 
     formatDate(value) {
         try {
-            const date = new Date(value);
+            // Attempt to parse the date.
+            // If the value is a string that looks like "YYYY-MM-DD", "MM/DD/YYYY", or "MM-DD-YYYY"
+            // we should treat it as a date without time, potentially in UTC to avoid timezone shifts.
+            let date;
+            let isLikelyDateOnlyString = false;
+
+            if (typeof value === 'string') {
+                const yyyy_mm_dd = /^\d{4}-\d{2}-\d{2}$/.test(value);
+                const mm_dd_yyyy = /^\d{2}\/\d{2}\/\d{4}$/.test(value);
+                const mm_dd_yyyy_dash = /^\d{2}-\d{2}-\d{4}$/.test(value);
+
+                if (yyyy_mm_dd || mm_dd_yyyy || mm_dd_yyyy_dash) {
+                    isLikelyDateOnlyString = true;
+                    let parts;
+                    if (yyyy_mm_dd) {
+                        parts = value.split('-');
+                        date = new Date(Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])));
+                    } else if (mm_dd_yyyy) {
+                        parts = value.split('/');
+                        date = new Date(Date.UTC(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1])));
+                    } else { // mm_dd_yyyy_dash
+                        parts = value.split('-');
+                        date = new Date(Date.UTC(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1])));
+                    }
+                } else {
+                    // For other string formats (like ISO with time), or if it's already a Date object (though less likely here)
+                    date = new Date(value);
+                }
+            } else {
+                 // If it's not a string (e.g. a number, which can be a timestamp), parse it directly
+                date = new Date(value);
+            }
+
             // Check if the date is valid
             if (isNaN(date.getTime())) {
                 return this.escapeHtml(value); // Return original escaped value if date is invalid
             }
 
-            // Check if the time components are all zero
-            const hasTime = date.getHours() !== 0 ||
-                            date.getMinutes() !== 0 ||
-                            date.getSeconds() !== 0 ||
-                            date.getMilliseconds() !== 0;
-
-            if (hasTime) {
-                // If there's a non-zero time, format as datetime
-                return `<span class="datetime-value">${date.toLocaleString()}</span>`;
+            if (isLikelyDateOnlyString) {
+                // For strings explicitly parsed as date-only (UTC), format as date string using UTC.
+                // This ensures "YYYY-MM-DD" doesn't become "YYYY-MM-DD HH:MM:SS" due to local timezone.
+                // 'en-CA' gives YYYY-MM-DD format, which is a good neutral choice.
+                // Other options: 'lookup' or specific locales if needed.
+                return `<span class="date-value">${date.toLocaleDateString('en-CA', { timeZone: 'UTC' })}</span>`;
             } else {
-                // If time is 00:00:00.000, format as date only
-                return `<span class="date-value">${date.toLocaleDateString()}</span>`;
+                // For other cases (potential datetimes, or numbers/timestamps), check for time components.
+                // Note: getHours, getMinutes etc. are based on the browser's local timezone 
+                // if the date wasn't created with UTC components.
+                // Using UTC getters here to be consistent with how we'd check a purely date value (which should be midnight UTC)
+                const hasTimeInUTC = date.getUTCHours() !== 0 ||
+                                date.getUTCMinutes() !== 0 ||
+                                date.getUTCSeconds() !== 0 ||
+                                date.getUTCMilliseconds() !== 0;
+                
+                // If the original input string already contained a time indicator (e.g., "T" or ":"),
+                // it's more likely a true datetime.
+                const inputIndicatesTime = typeof value === 'string' && (value.includes('T') || value.includes(':'));
+
+                if (hasTimeInUTC || inputIndicatesTime) {
+                    // If there's a non-zero time (in UTC) or input string indicated time, format as datetime (localized).
+                    // Using toLocaleString will use the browser's local timezone.
+                    return `<span class="datetime-value">${date.toLocaleString()}</span>`;
+                } else {
+                    // If time is 00:00:00.000 UTC, format as date only (localized, but should be correct date).
+                    // Using toLocaleDateString will use the browser's local timezone for formatting.
+                    return `<span class="date-value">${date.toLocaleDateString()}</span>`;
+                }
             }
         } catch (e) {
             console.warn('Error formatting date:', value, e);
