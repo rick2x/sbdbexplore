@@ -1,0 +1,18 @@
+# Use the official Nginx image
+FROM nginx:latest
+
+# Remove the default Nginx server block configuration
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy the custom Nginx configuration file
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Copy the static assets from the Flask application
+# These will be served directly by Nginx
+COPY static /var/www/static
+
+# Expose port 80
+EXPOSE 80
+
+# The default Nginx CMD is ["nginx", "-g", "daemon off;"]
+# which is what we want, so no need to override CMD.

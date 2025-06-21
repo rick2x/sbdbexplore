@@ -46,7 +46,7 @@ app = Flask(__name__)
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://"
+    storage_uri=os.environ.get("REDIS_URL", "memory://")  # Use REDIS_URL from env, fallback to memory
 )
 limiter.init_app(app)
 
@@ -947,5 +947,11 @@ def too_large(e):
     return jsonify({'error': 'File too large. Maximum size is 100MB.'}), 413
 
 if __name__ == '__main__':
-    # Run with threading for better performance
-    app.run(debug=True, threaded=True, host='0.0.0.0', port=5000)
+    # This block is for local development only.
+    # In production, Gunicorn will serve the app.
+    # For local testing with debug mode and threading:
+    # Ensure FLASK_SECRET_KEY and DBVIEWER_ADMIN_TOKEN (if needed for testing admin features)
+    # are set in your .env file or environment.
+    # REDIS_URL can also be set if you want to test with Redis locally.
+    logger.info("Starting Flask development server...")
+    app.run(debug=True, threaded=True, host='0.0.0.0', port=os.environ.get('FLASK_RUN_PORT', 5000))

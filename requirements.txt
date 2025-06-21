@@ -1,0 +1,7 @@
+Flask
+pyodbc
+python-dotenv
+Flask-WTF
+Flask-Limiter
+gunicorn
+redis

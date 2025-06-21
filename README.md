@@ -116,3 +116,80 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 ---
 
 Thank you for using the Online Database Viewer!
+
+---
+
+## Running with Docker (Production Ready)
+
+This application is configured to run with Docker and Docker Compose, including Nginx as a reverse proxy and Redis for rate limiting and potential future caching/session management.
+
+### Prerequisites
+
+*   Docker: [Install Docker](https://docs.docker.com/get-docker/)
+*   Docker Compose: [Install Docker Compose](https://docs.docker.com/compose/install/) (often included with Docker Desktop)
+
+### Configuration
+
+1.  **Create a `.env` file:**
+    In the root directory of the project, create a `.env` file. This file will store your secret configurations.
+    ```env
+    # .env file
+    FLASK_SECRET_KEY='your_very_strong_random_flask_secret_key_here'
+    DBVIEWER_ADMIN_TOKEN='your_secure_admin_token_for_delete_operations'
+
+    # Optional: If you want to change the default port Gunicorn runs on inside the container
+    # FLASK_RUN_PORT=5000
+    ```
+    *   `FLASK_SECRET_KEY`: **Required for production.** A long, random, and unique string. You can generate one using `python -c 'import secrets; print(secrets.token_hex(32))'`.
+    *   `DBVIEWER_ADMIN_TOKEN`: **Required for admin operations** (deleting databases). Choose a strong, unique token.
+
+### Building and Running
+
+1.  **Open your terminal** in the project's root directory (where `docker-compose.yml` is located).
+
+2.  **Build and run the services in detached mode:**
+    ```bash
+    docker-compose up --build -d
+    ```
+    *   `--build`: Forces Docker Compose to rebuild the images if they don't exist or if the Dockerfiles/code have changed.
+    *   `-d`: Runs the containers in detached mode (in the background).
+
+3.  **Accessing the application:**
+    Once the containers are up and running, the application will be accessible at:
+    `http://localhost/` (or `http://<your-server-ip>/` if deployed on a server). Nginx listens on port 80.
+
+### Managing Services
+
+*   **To view logs:**
+    ```bash
+    docker-compose logs -f            # View logs for all services
+    docker-compose logs -f app        # View logs for the Flask app service
+    docker-compose logs -f nginx      # View logs for the Nginx service
+    docker-compose logs -f redis      # View logs for the Redis service
+    ```
+
+*   **To stop the services:**
+    ```bash
+    docker-compose down
+    ```
+    This command stops and removes the containers, networks, and (by default) named volumes unless specified otherwise. If you want to preserve named volumes (like `redis_data`), they won't be removed by default.
+
+*   **To stop and remove volumes (including persistent data like Redis cache and uploads):**
+    ```bash
+    docker-compose down -v
+    ```
+    **Caution:** This will delete any uploaded database files and Redis data stored in Docker volumes.
+
+### Volumes
+
+*   `redis_data`: Persists Redis data across container restarts.
+*   `./uploads` (bind mount): Persists uploaded database files on your host machine in the `uploads/` directory.
+*   `./app.log` (bind mount): Persists the application log file on your host machine as `app.log`.
+
+### Further Production Considerations
+
+*   **HTTPS:** The provided Nginx configuration is for HTTP. For production, you should configure HTTPS using SSL/TLS certificates (e.g., with Let's Encrypt). This involves updating `nginx.conf` and potentially the `docker-compose.yml` for certificate management.
+*   **Database Backups (for `uploads/`):** Ensure you have a backup strategy for the `uploads/` directory if the data is critical.
+*   **Resource Allocation:** Adjust Gunicorn worker counts (`--workers` in the app's Dockerfile `CMD`) and Nginx worker processes based on your server's resources and expected load.
+*   **Security Hardening:** Review security best practices for Docker, Nginx, and Flask applications.
+*   **ODBC Drivers for MS Access on Linux:** The Flask app's `Dockerfile` includes `unixodbc-dev`. For full MS Access (`.mdb`/`.accdb`) functionality on a Linux Docker host, you might need to install specific ODBC drivers like `mdbtools` and `libmdbodbc1` (e.g., `apt-get install -y mdbtools libmdbodbc1`). Test thoroughly if this is a primary use case. SQLite is generally more straightforward in a Linux Docker environment.
