@@ -15,8 +15,8 @@ ENV FLASK_ENV=production
 # This setup prioritizes SQLite and general ODBC capabilities.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     unixodbc-dev \
+    odbc-mdbtools \
     # Consider adding other drivers if specific DBs like MS Access are critical in Docker on Linux
-    # For example: apt-get install -y mdbtools libmdbodbc1 
     && rm -rf /var/lib/apt/lists/*
 
 # Set work directory
@@ -25,6 +25,9 @@ WORKDIR /app
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy custom ODBC configuration
+COPY odbcinst.ini /etc/odbcinst.ini
 
 # Copy application code
 COPY . .

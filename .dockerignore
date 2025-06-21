@@ -23,7 +23,6 @@ Dockerfile
 Dockerfile.nginx
 .dockerignore
 docker-compose.yml
-nginx.conf
 
 # Application specific
 uploads/

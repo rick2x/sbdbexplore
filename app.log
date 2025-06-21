@@ -1,0 +1,40 @@
+# This is an empty file created to resolve a Docker bind mount issue.
+# It ensures that the host path for the app.log volume mount exists as a file.
+2025-06-21 02:17:08,878 - upload - INFO - File saved: 20250621_021708_Database1_be.accdb (original: Database1_be.accdb, size: 983040)
+2025-06-21 02:17:08,891 - database - ERROR - Failed to connect to Access DB /app/uploads/20250621_021708_Database1_be.accdb: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:17:08,891 - database - ERROR - Unexpected error in get_db_connection: Failed to connect to Access database: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:17:08,891 - dbviewer - ERROR - Error getting database info for /app/uploads/20250621_021708_Database1_be.accdb: Failed to connect to Access database: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:17:08,892 - upload - ERROR - Failed to read database info: 20250621_021708_Database1_be.accdb
+2025-06-21 02:17:14,365 - upload - INFO - File saved: 20250621_021714_Car_Database.db (original: Car_Database.db, size: 65536)
+2025-06-21 02:17:14,378 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_021714_Car_Database.db
+2025-06-21 02:17:14,385 - upload - INFO - Database uploaded successfully: 20250621_021714_Car_Database.db
+2025-06-21 02:17:14,426 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_021714_Car_Database.db
+2025-06-21 02:17:14,427 - database - INFO - Retrieved 11 tables for database: 20250621_021714_Car_Database.db
+2025-06-21 02:17:40,855 - upload - INFO - File saved: 20250621_021740_Database1_be.accdb (original: Database1_be.accdb, size: 983040)
+2025-06-21 02:17:40,866 - database - ERROR - Failed to connect to Access DB /app/uploads/20250621_021740_Database1_be.accdb: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:17:40,866 - database - ERROR - Unexpected error in get_db_connection: Failed to connect to Access database: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:17:40,866 - dbviewer - ERROR - Error getting database info for /app/uploads/20250621_021740_Database1_be.accdb: Failed to connect to Access database: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:17:40,866 - upload - ERROR - Failed to read database info: 20250621_021740_Database1_be.accdb
+2025-06-21 02:22:50,029 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_021714_Car_Database.db
+2025-06-21 02:22:53,999 - upload - INFO - File saved: 20250621_022253_Database1_be.accdb (original: Database1_be.accdb, size: 983040)
+2025-06-21 02:22:54,015 - database - ERROR - Failed to connect to Access DB /app/uploads/20250621_022253_Database1_be.accdb: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:22:54,015 - database - ERROR - Unexpected error in get_db_connection: Failed to connect to Access database: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:22:54,016 - dbviewer - ERROR - Error getting database info for /app/uploads/20250621_022253_Database1_be.accdb: Failed to connect to Access database: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:22:54,016 - upload - ERROR - Failed to read database info: 20250621_022253_Database1_be.accdb
+2025-06-21 02:22:56,934 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_021714_Car_Database.db
+2025-06-21 02:23:04,999 - upload - INFO - File saved: 20250621_022304_Database1_be.accdb (original: Database1_be.accdb, size: 983040)
+2025-06-21 02:23:05,015 - database - ERROR - Failed to connect to Access DB /app/uploads/20250621_022304_Database1_be.accdb: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:23:05,015 - database - ERROR - Unexpected error in get_db_connection: Failed to connect to Access database: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:23:05,016 - dbviewer - ERROR - Error getting database info for /app/uploads/20250621_022304_Database1_be.accdb: Failed to connect to Access database: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:23:05,016 - upload - ERROR - Failed to read database info: 20250621_022304_Database1_be.accdb
+2025-06-21 02:23:07,272 - database - INFO - Retrieved 11 tables for database: 20250621_021714_Car_Database.db
+2025-06-21 02:23:19,760 - upload - INFO - File saved: 20250621_022319_Database1_be.accdb (original: Database1_be.accdb, size: 983040)
+2025-06-21 02:23:19,783 - database - ERROR - Failed to connect to Access DB /app/uploads/20250621_022319_Database1_be.accdb: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:23:19,783 - database - ERROR - Unexpected error in get_db_connection: Failed to connect to Access database: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:23:19,783 - dbviewer - ERROR - Error getting database info for /app/uploads/20250621_022319_Database1_be.accdb: Failed to connect to Access database: ('01000', "[01000] [unixODBC][Driver Manager]Can't open lib 'Microsoft Access Driver (*.mdb, *.accdb)' : file not found (0) (SQLDriverConnect)")
+2025-06-21 02:23:19,784 - upload - ERROR - Failed to read database info: 20250621_022319_Database1_be.accdb
+2025-06-21 02:25:53,211 - upload - INFO - File saved: 20250621_022553_Database1_be.accdb (original: Database1_be.accdb, size: 983040)
+2025-06-21 02:25:53,231 - database - ERROR - Failed to connect to Access DB /app/uploads/20250621_022553_Database1_be.accdb: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
+2025-06-21 02:25:53,232 - database - ERROR - Unexpected error in get_db_connection: Failed to connect to Access database: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
+2025-06-21 02:25:53,232 - dbviewer - ERROR - Error getting database info for /app/uploads/20250621_022553_Database1_be.accdb: Failed to connect to Access database: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
+2025-06-21 02:25:53,233 - upload - ERROR - Failed to read database info: 20250621_022553_Database1_be.accdb
