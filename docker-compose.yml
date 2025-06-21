@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:latest
+    container_name: dbviewer_redis
+    restart: always
+    ports:
+      # Only expose to host if direct access is needed for debugging, otherwise keep internal
+      # - "6379:6379" 
+      - "127.0.0.1:6379:6379" # Limit to localhost for security
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dbviewer_app
+    restart: always
+    env_file:
+      - .env # For FLASK_SECRET_KEY, DBVIEWER_ADMIN_TOKEN, etc.
+    environment:
+      - FLASK_ENV=production
+      - REDIS_URL=redis://redis:6379/0
+      # FLASK_SECRET_KEY, DBVIEWER_ADMIN_TOKEN should be in .env
+    volumes:
+      - ./uploads:/app/uploads
+      - ./app.log:/app/app.log 
+      # For development, you might want to mount the source code:
+      # - ./:/app 
+    depends_on:
+      - redis
+    networks:
+      - app_network
+    expose: # Expose port only to the internal network, Nginx will front it
+      - "8000"
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    container_name: dbviewer_nginx
+    restart: always
+    ports:
+      - "80:80" # Expose Nginx on port 80 of the host
+      # For HTTPS (requires SSL certs and Nginx config update):
+      # - "443:443"
+    volumes:
+      # Nginx Dockerfile already copies static files at build time.
+      # If you need to serve static files directly from host during development:
+      # - ./static:/var/www/static:ro 
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro # Mount nginx config for easier changes if needed
+    depends_on:
+      - app
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  # uploads_data: # Defined via bind mount in app service
+  # app_log_data: # Defined via bind mount in app service

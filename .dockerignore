@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+.tox/
+
+# Environment variables
+.env
+
+# Docker specific files
+Dockerfile
+Dockerfile.nginx
+.dockerignore
+docker-compose.yml
+nginx.conf
+
+# Application specific
+uploads/
+app.log
+app.log.* 
+*.sqlite
+*.db
+*.mdb
+*.accdb
+
+# IDE settings
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS specific
+.DS_Store
+Thumbs.db
