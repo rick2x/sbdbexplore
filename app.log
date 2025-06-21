@@ -125,3 +125,42 @@ Traceback (most recent call last):
   File "/app/dbviewer.py", line 937, in view_table
     total_pages = (total_count + per_page - 1) // per_page
 TypeError: can only concatenate str (not "int") to str
+2025-06-21 02:43:42,409 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:43:42,428 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:43:44,830 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:43:44,831 - database - INFO - Retrieved 11 tables for database: 20250621_022923_Car_Database.db
+2025-06-21 02:43:45,987 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_022923_Car_Database.db', table='Car_Options'
+2025-06-21 02:43:45,993 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:43:45,996 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:43:47,330 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_022923_Car_Database.db', table='Car_Parts'
+2025-06-21 02:43:47,333 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:43:49,917 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:43:49,923 - database - INFO - Retrieved 10 tables for database: 20250621_023220_Database1_be.accdb
+2025-06-21 02:43:50,794 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='Customers'
+2025-06-21 02:43:50,826 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:43:51,903 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='Employees'
+2025-06-21 02:43:51,937 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:43:52,787 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='OrderDetails'
+2025-06-21 02:43:52,817 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:43:58,965 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='Employees'
+2025-06-21 02:43:58,998 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:44:00,736 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='NorthwindFeatures'
+2025-06-21 02:44:00,777 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:44:09,053 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='Employees'
+2025-06-21 02:44:09,064 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:44:09,090 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:44:11,647 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='NorthwindFeatures'
+2025-06-21 02:44:11,686 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:44:12,545 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='OrderDetails'
+2025-06-21 02:44:12,555 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:44:12,582 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:44:35,997 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='OrderStatus'
+2025-06-21 02:44:36,027 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.
+2025-06-21 02:46:48,939 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:46:48,958 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:46:51,863 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:46:51,864 - database - INFO - Retrieved 11 tables for database: 20250621_022923_Car_Database.db
+2025-06-21 02:46:54,801 - database - INFO - Retrieved 10 tables for database: 20250621_023220_Database1_be.accdb
+2025-06-21 02:46:56,009 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='OrderDetails'
+2025-06-21 02:46:56,019 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:46:56,046 - dbviewer - INFO - VIEW_TABLE: Successfully processed request. Returning JSON.

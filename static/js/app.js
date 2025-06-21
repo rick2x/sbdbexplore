@@ -1125,16 +1125,27 @@ class DatabaseViewer {
     formatDate(value) {
         try {
             const date = new Date(value);
-            if (isNaN(date.getTime())) return value;
-            
-            // Check if it includes time
-            if (value.includes('T') || value.includes(':')) {
+            // Check if the date is valid
+            if (isNaN(date.getTime())) {
+                return this.escapeHtml(value); // Return original escaped value if date is invalid
+            }
+
+            // Check if the time components are all zero
+            const hasTime = date.getHours() !== 0 ||
+                            date.getMinutes() !== 0 ||
+                            date.getSeconds() !== 0 ||
+                            date.getMilliseconds() !== 0;
+
+            if (hasTime) {
+                // If there's a non-zero time, format as datetime
                 return `<span class="datetime-value">${date.toLocaleString()}</span>`;
             } else {
+                // If time is 00:00:00.000, format as date only
                 return `<span class="date-value">${date.toLocaleDateString()}</span>`;
             }
         } catch (e) {
-            return value;
+            console.warn('Error formatting date:', value, e);
+            return this.escapeHtml(value); // Fallback to original escaped value
         }
     }
 

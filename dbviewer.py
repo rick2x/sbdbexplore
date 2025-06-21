@@ -873,7 +873,10 @@ def view_table(database_id, table_name):
             raise
         
         try:
-            total_count = get_total_count(conn, table_name, columns, search_term, search_columns)
+            # Ensure total_count is an integer
+            total_count_val = get_total_count(conn, table_name, columns, search_term, search_columns)
+            total_count = int(total_count_val) if total_count_val is not None else 0
+
             if search_term:
                 count_query, count_params = build_search_query(
                     table_name, columns, search_term, search_columns, '', '', 0, 0
@@ -884,7 +887,9 @@ def view_table(database_id, table_name):
                     count_query = count_query[:order_index].strip()
                 count_cursor = conn.cursor()
                 count_cursor.execute(count_query, count_params)
-                filtered_count = count_cursor.fetchone()[0]
+                # Ensure filtered_count is an integer
+                filtered_count_val = count_cursor.fetchone()[0]
+                filtered_count = int(filtered_count_val) if filtered_count_val is not None else 0
             else:
                 filtered_count = total_count
         except TypeError as te:
