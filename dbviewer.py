@@ -3,27 +3,52 @@ import tempfile
 import threading
 import time
 from datetime import datetime
-from functools import lru_cache
+from functools import lru_cache, wraps
 from collections import OrderedDict
 import logging
 import json
 import re
+import mimetypes
+import hashlib
+from typing import Optional, Dict, Any, List, Tuple
 from dotenv import load_dotenv
 
 from flask import Flask, render_template, request, jsonify, session
 from werkzeug.utils import secure_filename
 from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import pyodbc
 import sqlite3
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
+# Create separate loggers for different components
+upload_logger = logging.getLogger('upload')
+db_logger = logging.getLogger('database')
+security_logger = logging.getLogger('security')
+
 app = Flask(__name__)
+
+# Initialize rate limiter
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
+limiter.init_app(app)
 
 # Configure secret key
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY')
@@ -60,9 +85,78 @@ MAX_CACHE_SIZE = 10
 # Thread lock for cache operations
 cache_lock = threading.Lock()
 
-# Unused database metadata cache - REMOVED
-# database_metadata = {}
-# metadata_lock = threading.Lock()
+# Security configuration
+MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
+ALLOWED_MIME_TYPES = {
+    'application/vnd.ms-access',
+    'application/x-msaccess',
+    'application/vnd.sqlite3',
+    'application/x-sqlite3',
+    'application/octet-stream'  # For .db files
+}
+
+def handle_database_error(func):
+    """Decorator for database operation error handling"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except pyodbc.Error as e:
+            db_logger.error(f"Database error in {func.__name__}: {e}")
+            raise Exception(f"Database operation failed: {str(e)}")
+        except sqlite3.Error as e:
+            db_logger.error(f"SQLite error in {func.__name__}: {e}")
+            raise Exception(f"SQLite operation failed: {str(e)}")
+        except Exception as e:
+            db_logger.error(f"Unexpected error in {func.__name__}: {e}")
+            raise
+    return wrapper
+
+def validate_file_content(filepath: str) -> bool:
+    """Validate file content beyond extension checking"""
+    try:
+        # Check file size
+        if os.path.getsize(filepath) > MAX_UPLOAD_SIZE:
+            return False
+            
+        # Read first few bytes to identify file type
+        with open(filepath, 'rb') as f:
+            header = f.read(32)
+            
+        # SQLite files start with 'SQLite format 3\000'
+        if header.startswith(b'SQLite format 3'):
+            return True
+            
+        # Access database files have specific signatures
+        # .mdb files typically start with specific bytes
+        if header.startswith(b'\x00\x01\x00\x00Standard Jet DB') or \
+           header.startswith(b'\x00\x01\x00\x00Standard ACE DB'):
+            return True
+            
+        # Additional checks for other Access formats
+        if b'Microsoft' in header[:32] or b'Access' in header[:32]:
+            return True
+            
+        return False
+    except Exception as e:
+        security_logger.warning(f"File validation failed for {filepath}: {e}")
+        return False
+
+def sanitize_filename(filename: str) -> str:
+    """Enhanced filename sanitization"""
+    # Remove path traversal attempts
+    filename = os.path.basename(filename)
+    # Remove non-alphanumeric characters except dots, underscores, and hyphens
+    filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
+    # Ensure it doesn't start with a dot
+    if filename.startswith('.'):
+        filename = 'file_' + filename
+    return filename
+
+def log_security_event(event_type: str, details: Dict[str, Any], remote_addr: str = None):
+    """Log security-related events"""
+    remote_addr = remote_addr or request.remote_addr if request else 'unknown'
+    security_logger.warning(f"Security event: {event_type} from {remote_addr} - {details}")
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
@@ -117,13 +211,33 @@ def get_connection_string(filepath):
     else:
         return f'DRIVER={{Microsoft Access Driver (*.mdb)}};DBQ={filepath};ExtendedAnsiSQL=1;'
 
-def get_db_connection(filepath):
-    """Get database connection with caching"""
+@handle_database_error
+def get_db_connection(filepath: str):
+    """Get database connection with caching and improved error handling"""
+    if not os.path.exists(filepath):
+        db_logger.error(f"Database file not found: {filepath}")
+        raise FileNotFoundError(f"Database file not found: {filepath}")
+    
     with cache_lock:
         if filepath in connection_cache:
-            # Move to end (LRU)
-            connection_cache.move_to_end(filepath)
-            return connection_cache[filepath]
+            # Test connection before returning cached one
+            try:
+                conn = connection_cache[filepath]
+                # Test the connection with a simple query
+                cursor = conn.cursor()
+                if isinstance(conn, pyodbc.Connection):
+                    cursor.execute("SELECT 1")
+                else:  # SQLite
+                    cursor.execute("SELECT 1")
+                cursor.fetchone()
+                # Move to end (LRU) if connection is good
+                connection_cache.move_to_end(filepath)
+                db_logger.debug(f"Reusing cached connection for {filepath}")
+                return conn
+            except Exception as e:
+                db_logger.warning(f"Cached connection invalid for {filepath}: {e}")
+                # Remove invalid connection from cache
+                connection_cache.pop(filepath, None)
         
         # Remove oldest if cache is full
         if len(connection_cache) >= MAX_CACHE_SIZE:
@@ -131,8 +245,9 @@ def get_db_connection(filepath):
             old_conn = connection_cache.pop(oldest)
             try:
                 old_conn.close()
-            except:
-                pass
+                db_logger.debug(f"Closed oldest cached connection: {oldest}")
+            except Exception as e:
+                db_logger.warning(f"Error closing old connection: {e}")
         
         # Create new connection
         file_ext = filepath.rsplit('.', 1)[-1].lower()
@@ -141,34 +256,59 @@ def get_db_connection(filepath):
         if file_ext in ['mdb', 'accdb']:
             try:
                 conn_str = get_connection_string(filepath)
-                conn = pyodbc.connect(conn_str)
+                conn = pyodbc.connect(conn_str, timeout=30)
+                # Set encoding with better error handling
                 try:
                     conn.setdecoding(pyodbc.SQL_CHAR, encoding='utf-8')
                     conn.setdecoding(pyodbc.SQL_WCHAR, encoding='utf-8')
                     conn.setencoding(encoding='utf-8')
                 except Exception as encoding_error:
-                    logger.warning(f"Could not set encoding for Access DB {filepath}: {encoding_error}")
-                logger.info(f"Successfully connected to Access DB: {filepath}")
+                    db_logger.warning(f"Could not set encoding for Access DB {filepath}: {encoding_error}")
+                
+                # Test the connection
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+                
+                db_logger.info(f"Successfully connected to Access DB: {filepath}")
             except Exception as e:
-                logger.error(f"Failed to connect to Access DB {filepath} with pyodbc: {e}")
-                raise 
+                db_logger.error(f"Failed to connect to Access DB {filepath}: {e}")
+                raise ConnectionError(f"Failed to connect to Access database: {str(e)}")
+                
         elif file_ext in ['sqlite', 'db']:
             try:
-                conn = sqlite3.connect(filepath, check_same_thread=False) 
-                logger.info(f"Successfully connected to SQLite DB: {filepath}")
+                # Add timeout and other SQLite optimizations
+                conn = sqlite3.connect(
+                    filepath, 
+                    check_same_thread=False,
+                    timeout=30.0
+                )
+                # Enable WAL mode for better concurrent access
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA synchronous=NORMAL")
+                conn.execute("PRAGMA cache_size=10000")
+                
+                # Test the connection
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+                
+                db_logger.info(f"Successfully connected to SQLite DB: {filepath}")
             except Exception as e:
-                logger.error(f"Failed to connect to SQLite DB {filepath}: {e}")
-                raise
+                db_logger.error(f"Failed to connect to SQLite DB {filepath}: {e}")
+                raise ConnectionError(f"Failed to connect to SQLite database: {str(e)}")
         else:
-            logger.error(f"Unsupported database type: {file_ext} for file {filepath}")
-            raise ValueError(f"Unsupported database type: {file_ext}")
+            error_msg = f"Unsupported database type: {file_ext} for file {filepath}"
+            db_logger.error(error_msg)
+            raise ValueError(error_msg)
 
         if conn:
             connection_cache[filepath] = conn
             return conn
         else:
-            # This path should ideally not be reached if exceptions are raised above
-            raise ConnectionError(f"Failed to establish database connection for {filepath}")
+            error_msg = f"Failed to establish database connection for {filepath}"
+            db_logger.error(error_msg)
+            raise ConnectionError(error_msg)
 
 def get_tables(conn):
     """Get list of tables from database"""
@@ -292,36 +432,44 @@ def get_table_info(conn, table_name):
 
 def build_search_query(table_name, columns, search_term, search_columns, sort_column, sort_order, limit, offset):
     """Build optimized SQL query with search and pagination"""
-    # Base query
-    query = f"SELECT * FROM [{table_name}]"
+    # Validate and escape table name
+    table_name_escaped = f"[{table_name.replace(']', ']]')}]"
+    
+    # Base query - select only needed columns for better performance
+    query = f"SELECT * FROM {table_name_escaped}"
     params = []
     
-    # Add search conditions
+    # Add search conditions with optimized LIKE queries
     if search_term and columns:
+        search_conditions = []
         if search_columns and search_columns != ['all']:
-            # Search specific columns
-            search_conditions = []
+            # Search specific columns - validate column names
+            valid_column_names = {c['name'] for c in columns}
             for col in search_columns:
-                if col in [c['name'] for c in columns]:
-                    search_conditions.append(f"[{col}] LIKE ?")
+                if col in valid_column_names:
+                    # Escape column name to prevent injection
+                    escaped_col = f"[{col.replace(']', ']]')}]"
+                    search_conditions.append(f"UPPER(CAST({escaped_col} AS TEXT)) LIKE UPPER(?)")
                     params.append(f"%{search_term}%")
-            if search_conditions:
-                query += " WHERE " + " OR ".join(search_conditions)
         else:
-            # Search all columns
-            search_conditions = []
+            # Search all text-compatible columns
             for col in columns:
-                search_conditions.append(f"[{col['name']}] LIKE ?")
-                params.append(f"%{search_term}%")
-            if search_conditions:
-                query += " WHERE " + " OR ".join(search_conditions)
+                escaped_col = f"[{col['name'].replace(']', ']]')}]"
+                # Only search text-like columns for better performance
+                if col['type'] in ['Text', 'Memo', 'VARCHAR', 'CHAR', 'NVARCHAR', 'NCHAR', 'TEXT']:
+                    search_conditions.append(f"UPPER(CAST({escaped_col} AS TEXT)) LIKE UPPER(?)")
+                    params.append(f"%{search_term}%")
+        
+        if search_conditions:
+            query += " WHERE " + " OR ".join(search_conditions)
     
-    # Add sorting
-    if sort_column and sort_column in [c['name'] for c in columns]:
-        query += f" ORDER BY [{sort_column}] {sort_order}"
+    # Add sorting with validation
+    if sort_column:
+        valid_column_names = {c['name'] for c in columns}
+        if sort_column in valid_column_names:
+            escaped_sort_col = f"[{sort_column.replace(']', ']]')}]"
+            query += f" ORDER BY {escaped_sort_col} {sort_order}"
     
-    # Add pagination (different syntax for Access vs SQLite)
-    # For Access, we'll handle pagination differently
     return query, params
 
 def execute_paginated_query(conn, query, params, limit, offset):
@@ -430,49 +578,102 @@ def list_databases():
         databases = get_all_databases()
         return jsonify({
             'success': True,
-            'databases': databases
+            'databases': databases,
+            'admin_enabled': bool(DBVIEWER_ADMIN_TOKEN)
         })
     except Exception as e:
         logger.error(f"Error listing databases: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/upload', methods=['POST'])
+@limiter.limit("10 per minute")
 def upload_file():
-    """Handle file upload"""
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
+    """Handle file upload with enhanced security and error handling"""
+    try:
+        # Check if file is in request
+        if 'file' not in request.files:
+            log_security_event('missing_file', {'action': 'upload'})
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Enhanced file validation
+        if not file or not allowed_file(file.filename):
+            log_security_event('invalid_file_type', {
+                'filename': file.filename,
+                'content_type': file.content_type
+            })
+            return jsonify({'error': 'Invalid file type. Only .mdb, .accdb, .sqlite, and .db files are allowed'}), 400
+        
+        # Check file size before saving
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        if file_size > MAX_UPLOAD_SIZE:
+            log_security_event('file_too_large', {
+                'filename': file.filename,
+                'size': file_size
+            })
+            return jsonify({'error': f'File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024*1024)}MB'}), 400
+        
+        if file_size == 0:
+            return jsonify({'error': 'Empty file not allowed'}), 400
+        
+        # Sanitize filename
+        original_filename = file.filename
+        filename = sanitize_filename(secure_filename(file.filename))
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{timestamp}_{filename}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         
+        # Ensure upload directory exists
+        upload_folder = app.config['UPLOAD_FOLDER']
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        filepath = os.path.join(upload_folder, filename)
+        
+        # Save file with error handling
         try:
             file.save(filepath)
-            
-            # Get database info
+            upload_logger.info(f"File saved: {filename} (original: {original_filename}, size: {file_size})")
+        except Exception as e:
+            upload_logger.error(f"Failed to save file {filename}: {e}")
+            return jsonify({'error': 'Failed to save uploaded file'}), 500
+        
+        # Validate file content
+        if not validate_file_content(filepath):
+            upload_logger.warning(f"File content validation failed: {filename}")
+            os.remove(filepath)
+            log_security_event('invalid_file_content', {
+                'filename': original_filename
+            })
+            return jsonify({'error': 'Invalid file format or corrupted file'}), 400
+        
+        # Get database info with error handling
+        try:
             db_info = get_database_info(filepath)
             if not db_info:
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                return jsonify({'error': 'Failed to read database file'}), 500
+                upload_logger.error(f"Failed to read database info: {filename}")
+                os.remove(filepath)
+                return jsonify({'error': 'Unable to read database file. File may be corrupted or password-protected'}), 500
             
+            upload_logger.info(f"Database uploaded successfully: {filename}")
             return jsonify({
                 'success': True,
                 'database': db_info
             })
+            
         except Exception as e:
-            logger.error(f"Upload error: {e}")
+            upload_logger.error(f"Database processing error for {filename}: {e}")
             if os.path.exists(filepath):
                 os.remove(filepath)
-            return jsonify({'error': str(e)}), 500
+            return jsonify({'error': f'Database processing failed: {str(e)}'}), 500
     
-    return jsonify({'error': 'Invalid file type'}), 400
+    except Exception as e:
+        upload_logger.error(f"Unexpected upload error: {e}")
+        return jsonify({'error': 'Upload failed due to server error'}), 500
 
 # Decorator for admin token authentication
 from functools import wraps
@@ -482,55 +683,84 @@ def admin_token_required(f):
     def decorated_function(*args, **kwargs):
         token = request.headers.get('X-Admin-Token')
         if not DBVIEWER_ADMIN_TOKEN: # If admin token is not configured on server
-            logger.error(f"Admin action {f.__name__} attempted but DBVIEWER_ADMIN_TOKEN is not configured on the server.")
-            return jsonify({'error': 'Action not configured. Admin token not set up on server.'}), 501 # Not Implemented
+            security_logger.info(f"Admin action {f.__name__} attempted but DBVIEWER_ADMIN_TOKEN is not configured on the server.")
+            return jsonify({'error': 'Admin operations are disabled. Contact administrator to enable admin token.'}), 501 # Not Implemented
         if not token or token != DBVIEWER_ADMIN_TOKEN:
-            logger.warning(f"Unauthorized access attempt to {f.__name__} without valid admin token. Received token: '{token}'")
+            security_logger.warning(f"Unauthorized access attempt to {f.__name__} from {request.remote_addr}. Received token: '{token}'")
             return jsonify({'error': 'Unauthorized: Admin token required or invalid.'}), 403
         return f(*args, **kwargs)
     return decorated_function
 
 @app.route('/database/<database_id>/tables')
+@limiter.limit("30 per minute")
 def get_tables_list(database_id):
     """Get list of tables for a specific database"""
     try:
+        # Validate database_id format
+        if not database_id or '..' in database_id or '/' in database_id:
+            log_security_event('invalid_database_id', {'database_id': database_id})
+            return jsonify({'error': 'Invalid database identifier'}), 400
+        
         # Find database by ID (filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], database_id)
         if not os.path.exists(filepath) or not allowed_file(database_id):
+            db_logger.warning(f"Database not found or invalid: {database_id}")
             return jsonify({'error': 'Database not found'}), 404
         
         conn = get_db_connection(filepath)
         tables = get_tables(conn)
+        db_logger.info(f"Retrieved {len(tables)} tables for database: {database_id}")
+        
         return jsonify({
             'success': True,
             'tables': tables,
             'database_id': database_id
         })
+    except FileNotFoundError:
+        return jsonify({'error': 'Database file not found'}), 404
+    except ConnectionError as e:
+        return jsonify({'error': f'Database connection failed: {str(e)}'}), 500
     except Exception as e:
-        logger.error(f"Error getting tables: {e}")
-        return jsonify({'error': str(e)}), 500
+        db_logger.error(f"Error getting tables for {database_id}: {e}")
+        return jsonify({'error': 'Failed to retrieve database tables'}), 500
 
 @app.route('/database/<database_id>/table/<table_name>')
+@limiter.limit("50 per minute")
 def view_table(database_id, table_name):
-    """View table data with pagination and search"""
+    """View table data with pagination and search - optimized for performance"""
     try:
+        # Validate inputs to prevent injection
+        if not database_id or '..' in database_id or '/' in database_id:
+            log_security_event('invalid_database_id', {'database_id': database_id})
+            return jsonify({'error': 'Invalid database identifier'}), 400
+            
+        if not table_name or len(table_name) > 128:
+            log_security_event('invalid_table_name', {'table_name': table_name})
+            return jsonify({'error': 'Invalid table name'}), 400
+        
         # Find database by ID (filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], database_id)
         if not os.path.exists(filepath) or not allowed_file(database_id):
             return jsonify({'error': 'Database not found'}), 404
         
-        # Get parameters
-        page = int(request.args.get('page', 1))
-        per_page = int(request.args.get('per_page', 50))
-        sort_column = request.args.get('sort_column', '')
-        sort_order = request.args.get('sort_order', 'ASC')
-        search_term = request.args.get('search', '')
-        search_columns = request.args.getlist('search_columns')
+        # Get and validate parameters
+        try:
+            page = max(int(request.args.get('page', 1)), 1)
+            per_page = min(max(int(request.args.get('per_page', 50)), 1), 1000)  # Increased max for exports
+            sort_column = request.args.get('sort_column', '').strip()
+            sort_order = request.args.get('sort_order', 'ASC').upper()
+            search_term = request.args.get('search', '').strip()
+            search_columns = request.args.getlist('search_columns')
+        except (ValueError, TypeError) as e:
+            return jsonify({'error': 'Invalid pagination parameters'}), 400
         
-        # Validate parameters
-        per_page = min(max(per_page, 1), 500)
-        page = max(page, 1)
-        sort_order = 'DESC' if sort_order.upper() == 'DESC' else 'ASC'
+        # Validate sort order
+        if sort_order not in ['ASC', 'DESC']:
+            sort_order = 'ASC'
+            
+        # Limit search term length to prevent abuse
+        if len(search_term) > 100:
+            search_term = search_term[:100]
         
         conn = get_db_connection(filepath)
         

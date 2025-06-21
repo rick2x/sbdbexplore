@@ -10,8 +10,14 @@ class DatabaseViewer {
         this.searchTerm = '';
         this.searchColumns = ['all'];
         this.tables = [];
+        this.loadingTimeout = null;
+        this.searchTimeout = null;
+        this.lastPaginationInfo = null;
+        this.adminEnabled = false;
+        this.adminToken = null;
         
         this.initializeEventListeners();
+        this.initializeKeyboardShortcuts();
         this.loadDatabases();
     }
 
@@ -79,6 +85,7 @@ class DatabaseViewer {
         const deleteDbBtn = document.getElementById('delete-db-btn');
         const uploadMoreBtn = document.getElementById('upload-more-btn');
         const helpBtn = document.getElementById('help-btn');
+        const shortcutsBtn = document.getElementById('shortcuts-btn');
         const searchClear = document.getElementById('search-clear');
         
         deleteDbBtn.addEventListener('click', () => {
@@ -91,6 +98,10 @@ class DatabaseViewer {
         
         helpBtn.addEventListener('click', () => {
             this.showHelp();
+        });
+        
+        shortcutsBtn.addEventListener('click', () => {
+            this.showKeyboardShortcuts();
         });
         
         searchClear.addEventListener('click', () => {
@@ -144,6 +155,93 @@ class DatabaseViewer {
         });
     }
 
+    initializeKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Only handle shortcuts when not typing in input fields
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                return;
+            }
+
+            switch(e.key) {
+                case 'u':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        document.getElementById('file-input').click();
+                    }
+                    break;
+                case 'f':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        const searchInput = document.getElementById('search-input');
+                        if (searchInput) {
+                            searchInput.focus();
+                        }
+                    }
+                    break;
+                case 'Escape':
+                    // Clear search
+                    const searchInput = document.getElementById('search-input');
+                    if (searchInput && searchInput.value) {
+                        searchInput.value = '';
+                        this.searchTerm = '';
+                        this.currentPage = 1;
+                        document.getElementById('search-clear').style.display = 'none';
+                        if (this.currentTable && this.currentDatabase) {
+                            this.loadTableData(this.currentDatabase, this.currentTable);
+                        }
+                    }
+                    break;
+                case 'ArrowLeft':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        this.navigatePage(-1);
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        this.navigatePage(1);
+                    }
+                    break;
+                case 'e':
+                    if ((e.ctrlKey || e.metaKey) && this.currentTable) {
+                        e.preventDefault();
+                        this.exportTable();
+                    }
+                    break;
+                case '?':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        this.showKeyboardShortcuts();
+                    }
+                    break;
+            }
+        });
+    }
+
+    navigatePage(direction) {
+        if (!this.currentTable || !this.currentDatabase) return;
+        
+        const newPage = this.currentPage + direction;
+        
+        // Get current pagination info from the last loaded data
+        const paginationInfo = this.lastPaginationInfo;
+        const maxPage = paginationInfo ? paginationInfo.total_pages : 1;
+        
+        // Ensure we stay within valid page bounds
+        if (newPage >= 1 && newPage <= maxPage) {
+            this.currentPage = newPage;
+            this.loadTableData(this.currentDatabase, this.currentTable);
+        } else {
+            // Provide feedback when trying to navigate beyond bounds
+            if (newPage < 1) {
+                this.showToast('info', 'Navigation', 'Already on the first page');
+            } else if (newPage > maxPage) {
+                this.showToast('info', 'Navigation', `Already on the last page (${maxPage})`);
+            }
+        }
+    }
+
     async loadDatabases() {
         try {
             const response = await fetch('/databases');
@@ -151,6 +249,7 @@ class DatabaseViewer {
 
             if (result.success) {
                 this.databases = result.databases;
+                this.adminEnabled = result.admin_enabled || false;
                 this.populateDatabaseSelect();
                 
                 if (this.databases.length > 0) {
@@ -195,21 +294,10 @@ class DatabaseViewer {
 
     async uploadFile(file) {
         // Validate file type
-        const allowedTypes = [
-            'application/vnd.ms-access', 
-            'application/x-msaccess', 
-            'application/vnd.sqlite3', 
-            'application/x-sqlite3'
-        ];
         const allowedExtensions = ['.mdb', '.accdb', '.sqlite', '.db'];
         const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
         
-        let isValidExtension = allowedExtensions.includes(fileExtension);
-        // For files like ".db", also check if the type seems plausible if browser provides it,
-        // though extension check is primary for user feedback.
-        // let isValidMime = file.type && allowedTypes.includes(file.type.toLowerCase());
-
-        if (!isValidExtension) {
+        if (!allowedExtensions.includes(fileExtension)) {
             this.showToast('error', 'Invalid File Type', 'Please select a .mdb, .accdb, .sqlite, or .db file');
             return;
         }
@@ -220,7 +308,8 @@ class DatabaseViewer {
             return;
         }
 
-        this.showLoadingOverlay('Uploading and processing database...');
+        // Show progress indicator
+        this.showUploadProgress(file.name, file.size);
 
         const formData = new FormData();
         formData.append('file', file);
@@ -259,10 +348,62 @@ class DatabaseViewer {
             console.error('Upload error:', error);
             this.showToast('error', 'Upload Failed', 'Network error occurred during upload');
         } finally {
-            this.hideLoadingOverlay();
+            this.hideUploadProgress();
             // Reset file input
             document.getElementById('file-input').value = '';
+            const fileInputSimple = document.getElementById('file-input-simple');
+            if (fileInputSimple) fileInputSimple.value = '';
         }
+    }
+
+    showUploadProgress(filename, fileSize) {
+        const overlay = document.getElementById('loading-overlay');
+        const content = overlay.querySelector('.loading-content');
+        
+        content.innerHTML = `
+            <div class="upload-progress">
+                <i class="fas fa-upload" style="font-size: 2rem; color: var(--primary-color); margin-bottom: 1rem;"></i>
+                <h3>Uploading Database</h3>
+                <p class="upload-filename">${filename}</p>
+                <p class="upload-size">${this.formatFileSize(fileSize)}</p>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <p class="upload-status">Preparing upload...</p>
+            </div>
+        `;
+        
+        overlay.style.display = 'flex';
+        
+        // Simulate progress for user feedback
+        let progress = 0;
+        const progressBar = overlay.querySelector('.progress-fill');
+        const statusText = overlay.querySelector('.upload-status');
+        
+        const updateProgress = () => {
+            progress += Math.random() * 15 + 5;
+            if (progress > 90) progress = 90;
+            
+            progressBar.style.width = `${progress}%`;
+            
+            if (progress < 30) {
+                statusText.textContent = 'Uploading file...';
+            } else if (progress < 70) {
+                statusText.textContent = 'Processing database...';
+            } else {
+                statusText.textContent = 'Almost done...';
+            }
+        };
+        
+        this.progressInterval = setInterval(updateProgress, 200);
+    }
+
+    hideUploadProgress() {
+        if (this.progressInterval) {
+            clearInterval(this.progressInterval);
+            this.progressInterval = null;
+        }
+        this.hideLoadingOverlay();
     }
 
     showHeroSection() {
@@ -477,6 +618,7 @@ class DatabaseViewer {
             const result = await response.json();
 
             if (result.success) {
+                this.lastPaginationInfo = result.pagination;
                 this.renderTable(result);
                 this.updateTableStats(result.pagination);
                 this.renderPagination(result.pagination);
@@ -539,7 +681,9 @@ class DatabaseViewer {
             const tr = document.createElement('tr');
             result.columns.forEach(column => {
                 const td = document.createElement('td');
-                td.innerHTML = row[column.name] || '';
+                const value = row[column.name];
+                td.innerHTML = this.formatCellValue(value, column.type) || '';
+                td.title = this.getCellTooltip(value);
                 tr.appendChild(td);
             });
             tableBody.appendChild(tr);
@@ -751,7 +895,13 @@ class DatabaseViewer {
     }
 
     showDatabaseActions() {
-        document.getElementById('database-actions').style.display = 'flex';
+        const actionsElement = document.getElementById('database-actions');
+        if (this.adminEnabled) {
+            actionsElement.style.display = 'flex';
+        } else {
+            // Hide delete button if admin is not enabled
+            actionsElement.style.display = 'none';
+        }
     }
     
     hideDatabaseActions() {
@@ -760,6 +910,19 @@ class DatabaseViewer {
     
     async confirmDeleteDatabase() {
         if (!this.currentDatabase) return;
+        
+        if (!this.adminEnabled) {
+            this.showToast('error', 'Action Disabled', 'Admin operations are disabled. Contact administrator.');
+            return;
+        }
+        
+        // Get admin token if not already set
+        if (!this.adminToken) {
+            this.adminToken = prompt('Enter admin token to perform this action:');
+            if (!this.adminToken) {
+                return; // User cancelled
+            }
+        }
         
         const dbInfo = this.databases.find(db => db.filename === this.currentDatabase);
         const confirmMessage = `Are you sure you want to delete "${dbInfo.original_name}"?\n\nThis action cannot be undone.`;
@@ -775,8 +938,8 @@ class DatabaseViewer {
             const response = await fetch(`/database/${encodeURIComponent(this.currentDatabase)}/delete`, {
                 method: 'DELETE',
                 headers: {
-                    'X-CSRFToken': csrfToken
-                    // 'Content-Type': 'application/json' // Not needed for DELETE if no body
+                    'X-CSRFToken': csrfToken,
+                    'X-Admin-Token': this.adminToken
                 }
             });
             
@@ -797,7 +960,13 @@ class DatabaseViewer {
                     this.showHeroSection();
                 }
             } else {
-                this.showToast('error', 'Delete Failed', result.error || 'Failed to delete database');
+                // If unauthorized, clear the admin token and show error
+                if (response.status === 403) {
+                    this.adminToken = null;
+                    this.showToast('error', 'Authentication Failed', 'Invalid admin token. Please try again.');
+                } else {
+                    this.showToast('error', 'Delete Failed', result.error || 'Failed to delete database');
+                }
             }
         } catch (error) {
             console.error('Delete error:', error);
@@ -827,10 +996,61 @@ class DatabaseViewer {
                     <h4>4. Export Data</h4>
                     <p>Click the Export CSV button to download table data</p>
                 </div>
+                ${this.adminEnabled ? `
+                <div class="help-section">
+                    <h4>5. Admin Operations</h4>
+                    <p>Delete databases using the delete button (requires admin token)</p>
+                </div>
+                ` : `
+                <div class="help-section">
+                    <h4>5. Admin Operations</h4>
+                    <p>Admin operations are disabled on this server</p>
+                </div>
+                `}
             </div>
         `;
         
         this.showToast('info', 'Help & Documentation', helpContent);
+    }
+    
+    showKeyboardShortcuts() {
+        const shortcutsContent = `
+            <div class="shortcuts-modal">
+                <h3>Keyboard Shortcuts</h3>
+                <div class="shortcuts-grid">
+                    <div class="shortcut-item">
+                        <kbd>Ctrl+U</kbd>
+                        <span>Upload database file</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Ctrl+F</kbd>
+                        <span>Focus search box</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Escape</kbd>
+                        <span>Clear search</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Ctrl+←</kbd>
+                        <span>Previous page</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Ctrl+→</kbd>
+                        <span>Next page</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Ctrl+E</kbd>
+                        <span>Export current table</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <kbd>Ctrl+?</kbd>
+                        <span>Show this help</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.showToast('info', 'Keyboard Shortcuts', shortcutsContent);
     }
     
     formatFileSize(bytes) {
@@ -839,6 +1059,138 @@ class DatabaseViewer {
         const sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    formatCellValue(value, columnType) {
+        if (value === null || value === undefined || value === '') {
+            return '<span class="null-value">NULL</span>';
+        }
+
+        // Handle different data types
+        const valueStr = String(value);
+        
+        // Date formatting
+        if (this.isDateValue(valueStr)) {
+            return this.formatDate(valueStr);
+        }
+        
+        // Number formatting
+        if (this.isNumericType(columnType) && this.isNumericValue(valueStr)) {
+            return this.formatNumber(valueStr);
+        }
+        
+        // Boolean formatting
+        if (this.isBooleanValue(valueStr)) {
+            return this.formatBoolean(valueStr);
+        }
+        
+        // URL formatting
+        if (this.isUrl(valueStr)) {
+            return `<a href="${valueStr}" target="_blank" rel="noopener">${this.truncateText(valueStr, 50)}</a>`;
+        }
+        
+        // Email formatting
+        if (this.isEmail(valueStr)) {
+            return `<a href="mailto:${valueStr}">${valueStr}</a>`;
+        }
+        
+        // Truncate long text
+        if (valueStr.length > 100) {
+            return `<span class="truncated-text" title="${this.escapeHtml(valueStr)}">${this.escapeHtml(this.truncateText(valueStr, 100))}</span>`;
+        }
+        
+        return this.escapeHtml(valueStr);
+    }
+
+    getCellTooltip(value) {
+        if (value === null || value === undefined || value === '') {
+            return 'NULL value';
+        }
+        const valueStr = String(value);
+        return valueStr.length > 50 ? valueStr : '';
+    }
+
+    isDateValue(value) {
+        // Check for common date patterns
+        const datePatterns = [
+            /^\d{4}-\d{2}-\d{2}/, // YYYY-MM-DD
+            /^\d{2}\/\d{2}\/\d{4}/, // MM/DD/YYYY
+            /^\d{2}-\d{2}-\d{4}/, // MM-DD-YYYY
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/ // ISO datetime
+        ];
+        
+        return datePatterns.some(pattern => pattern.test(value)) && !isNaN(Date.parse(value));
+    }
+
+    formatDate(value) {
+        try {
+            const date = new Date(value);
+            if (isNaN(date.getTime())) return value;
+            
+            // Check if it includes time
+            if (value.includes('T') || value.includes(':')) {
+                return `<span class="datetime-value">${date.toLocaleString()}</span>`;
+            } else {
+                return `<span class="date-value">${date.toLocaleDateString()}</span>`;
+            }
+        } catch (e) {
+            return value;
+        }
+    }
+
+    isNumericType(columnType) {
+        const numericTypes = ['Number', 'Integer', 'Float', 'Double', 'Decimal', 'Currency', 'REAL', 'INTEGER', 'NUMERIC'];
+        return numericTypes.includes(columnType);
+    }
+
+    isNumericValue(value) {
+        return !isNaN(value) && !isNaN(parseFloat(value)) && isFinite(value);
+    }
+
+    formatNumber(value) {
+        const num = parseFloat(value);
+        if (Number.isInteger(num)) {
+            return `<span class="number-value">${num.toLocaleString()}</span>`;
+        } else {
+            return `<span class="number-value">${num.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 6})}</span>`;
+        }
+    }
+
+    isBooleanValue(value) {
+        const booleanValues = ['true', 'false', '1', '0', 'yes', 'no', 'y', 'n'];
+        return booleanValues.includes(value.toLowerCase());
+    }
+
+    formatBoolean(value) {
+        const truthyValues = ['true', '1', 'yes', 'y'];
+        const isTruthy = truthyValues.includes(value.toLowerCase());
+        const icon = isTruthy ? 'fas fa-check-circle' : 'fas fa-times-circle';
+        const className = isTruthy ? 'boolean-true' : 'boolean-false';
+        return `<span class="boolean-value ${className}"><i class="${icon}"></i> ${isTruthy ? 'True' : 'False'}</span>`;
+    }
+
+    isUrl(value) {
+        try {
+            new URL(value);
+            return value.startsWith('http://') || value.startsWith('https://');
+        } catch {
+            return false;
+        }
+    }
+
+    isEmail(value) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(value);
+    }
+
+    truncateText(text, length) {
+        return text.length > length ? text.substring(0, length) + '...' : text;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     showToast(type, title, message) {
