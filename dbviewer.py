@@ -8,18 +8,45 @@ from collections import OrderedDict
 import logging
 import json
 import re
+from dotenv import load_dotenv
 
 from flask import Flask, render_template, request, jsonify, session
 from werkzeug.utils import secure_filename
+from flask_wtf.csrf import CSRFProtect
 import pyodbc
 import sqlite3
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here-change-in-production'
+
+# Configure secret key
+SECRET_KEY = os.environ.get('FLASK_SECRET_KEY')
+if not SECRET_KEY:
+    if app.debug:
+        logger.warning("FLASK_SECRET_KEY environment variable not set. Using a default insecure key for development. DO NOT RUN IN PRODUCTION WITHOUT SETTING THIS.")
+        SECRET_KEY = "dev-debug-key-must-not-be-used-in-prod-and-is-very-long-to-meet-entropy-reqs" # Ensure it's long enough
+    else:
+        logger.error("FLASK_SECRET_KEY is not set. Application will not run in production mode without it.")
+        raise ValueError("FLASK_SECRET_KEY is not set. Application cannot start in non-debug mode.")
+app.secret_key = SECRET_KEY
+
+# Initialize CSRF Protection
+csrf = CSRFProtect(app)
+
+# Admin Token Configuration
+DBVIEWER_ADMIN_TOKEN = os.environ.get('DBVIEWER_ADMIN_TOKEN')
+if not DBVIEWER_ADMIN_TOKEN and not app.debug:
+    logger.warning("DBVIEWER_ADMIN_TOKEN is not set. Destructive operations will be disabled.")
+elif not DBVIEWER_ADMIN_TOKEN and app.debug:
+    logger.warning("DBVIEWER_ADMIN_TOKEN is not set. Using a default insecure token for development: 'admin-debug-token'. DO NOT USE IN PRODUCTION.")
+    DBVIEWER_ADMIN_TOKEN = "admin-debug-token"
+
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB max file size
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 
@@ -33,9 +60,9 @@ MAX_CACHE_SIZE = 10
 # Thread lock for cache operations
 cache_lock = threading.Lock()
 
-# Database metadata cache
-database_metadata = {}
-metadata_lock = threading.Lock()
+# Unused database metadata cache - REMOVED
+# database_metadata = {}
+# metadata_lock = threading.Lock()
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
@@ -436,6 +463,22 @@ def upload_file():
     
     return jsonify({'error': 'Invalid file type'}), 400
 
+# Decorator for admin token authentication
+from functools import wraps
+
+def admin_token_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = request.headers.get('X-Admin-Token')
+        if not DBVIEWER_ADMIN_TOKEN: # If admin token is not configured on server
+            logger.error(f"Admin action {f.__name__} attempted but DBVIEWER_ADMIN_TOKEN is not configured on the server.")
+            return jsonify({'error': 'Action not configured. Admin token not set up on server.'}), 501 # Not Implemented
+        if not token or token != DBVIEWER_ADMIN_TOKEN:
+            logger.warning(f"Unauthorized access attempt to {f.__name__} without valid admin token. Received token: '{token}'")
+            return jsonify({'error': 'Unauthorized: Admin token required or invalid.'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/database/<database_id>/tables')
 def get_tables_list(database_id):
     """Get list of tables for a specific database"""
@@ -481,9 +524,18 @@ def view_table(database_id, table_name):
         conn = get_db_connection(filepath)
         
         # Get table info
+        # First, validate table_name to prevent SQL injection
+        all_tables = get_tables(conn)
+        if table_name not in all_tables:
+            logger.warning(f"Attempt to access non-existent or unauthorized table '{table_name}' in database '{database_id}'.")
+            return jsonify({'error': f"Table '{table_name}' not found or access denied."}), 404
+
         columns = get_table_info(conn, table_name)
         if not columns:
-            return jsonify({'error': 'Table not found'}), 404
+            # This case should ideally be less frequent if table_name is validated against get_tables first,
+            # but get_table_info might still fail for other reasons (e.g. permissions, corruption on a specific table).
+            logger.error(f"Could not get column info for validated table '{table_name}' in database '{database_id}'.")
+            return jsonify({'error': f"Could not retrieve column information for table '{table_name}'."}), 500
         
         # Calculate offset
         offset = (page - 1) * per_page
@@ -588,6 +640,7 @@ def view_table(database_id, table_name):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/database/<database_id>/delete', methods=['DELETE'])
+@admin_token_required
 def delete_database(database_id):
     """Delete a specific database"""
     try:
@@ -616,6 +669,7 @@ def delete_database(database_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/cleanup-all', methods=['POST'])
+@admin_token_required
 def cleanup_all():
     """Clean up all uploaded files (admin function)"""
     try:

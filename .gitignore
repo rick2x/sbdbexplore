@@ -1,2 +1,5 @@
 /uploads/
 /venv/
+
+# Environment variables
+.env

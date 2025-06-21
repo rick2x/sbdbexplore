@@ -448,7 +448,8 @@ body {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
     border: 1px solid var(--border-color);
-    overflow: hidden;
+    overflow-y: auto; /* Allow vertical scrolling for the entire sidebar if needed */
+    overflow-x: hidden; /* Keep horizontal overflow hidden */
     height: fit-content;
     max-height: calc(100vh - 200px);
 }

@@ -19,7 +19,7 @@ class DatabaseViewer {
         // File upload handling
         const fileInput = document.getElementById('file-input');
         const uploadArea = document.getElementById('upload-area');
-        const refreshBtn = document.getElementById('refresh-btn');
+        // const refreshBtn = document.getElementById('refresh-btn'); // Removed
         const databaseSelect = document.getElementById('database-select');
 
         // File input change (both inputs)
@@ -59,10 +59,10 @@ class DatabaseViewer {
             }
         });
 
-        // Refresh button
-        refreshBtn.addEventListener('click', () => {
-            this.loadDatabases();
-        });
+        // Refresh button - REMOVED
+        // refreshBtn.addEventListener('click', () => {
+        //     this.loadDatabases();
+        // });
 
         // Database selection
         databaseSelect.addEventListener('change', (e) => {
@@ -214,10 +214,15 @@ class DatabaseViewer {
 
         const formData = new FormData();
         formData.append('file', file);
+        // formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content')); // Alternative: send as form field
 
         try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             const response = await fetch('/upload', {
                 method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
                 body: formData
             });
 
@@ -254,21 +259,21 @@ class DatabaseViewer {
         document.getElementById('hero-section').style.display = 'block';
         document.getElementById('upload-section').style.display = 'none';
         document.getElementById('explorer-section').style.display = 'none';
-        document.getElementById('refresh-btn').style.display = 'none';
+        // document.getElementById('refresh-btn').style.display = 'none'; // Removed
     }
     
     showExplorerSection() {
         document.getElementById('hero-section').style.display = 'none';
         document.getElementById('upload-section').style.display = 'none'; // Hide upload section when databases exist
         document.getElementById('explorer-section').style.display = 'block';
-        document.getElementById('refresh-btn').style.display = 'flex';
+        // document.getElementById('refresh-btn').style.display = 'flex'; // Removed
     }
 
     showUploadSection() {
         document.getElementById('hero-section').style.display = 'none';
         document.getElementById('upload-section').style.display = 'flex';
         document.getElementById('explorer-section').style.display = 'none';
-        document.getElementById('refresh-btn').style.display = 'none';
+        // document.getElementById('refresh-btn').style.display = 'none'; // Removed
     }
 
     async selectDatabase(databaseId) {
@@ -756,8 +761,13 @@ class DatabaseViewer {
         this.showLoadingOverlay('Deleting database...');
         
         try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             const response = await fetch(`/database/${encodeURIComponent(this.currentDatabase)}/delete`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                    // 'Content-Type': 'application/json' // Not needed for DELETE if no body
+                }
             });
             
             const result = await response.json();
