@@ -38,3 +38,90 @@
 2025-06-21 02:25:53,232 - database - ERROR - Unexpected error in get_db_connection: Failed to connect to Access database: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
 2025-06-21 02:25:53,232 - dbviewer - ERROR - Error getting database info for /app/uploads/20250621_022553_Database1_be.accdb: Failed to connect to Access database: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
 2025-06-21 02:25:53,233 - upload - ERROR - Failed to read database info: 20250621_022553_Database1_be.accdb
+2025-06-21 02:29:10,621 - upload - INFO - File saved: 20250621_022910_Database1_be.accdb (original: Database1_be.accdb, size: 983040)
+2025-06-21 02:29:10,644 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_022910_Database1_be.accdb
+2025-06-21 02:29:10,652 - upload - INFO - Database uploaded successfully: 20250621_022910_Database1_be.accdb
+2025-06-21 02:29:10,668 - database - WARNING - Cached connection invalid for /app/uploads/20250621_022910_Database1_be.accdb: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
+2025-06-21 02:29:10,678 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_022910_Database1_be.accdb
+2025-06-21 02:29:10,697 - database - WARNING - Cached connection invalid for /app/uploads/20250621_022910_Database1_be.accdb: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
+2025-06-21 02:29:10,709 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_022910_Database1_be.accdb
+2025-06-21 02:29:10,719 - database - INFO - Retrieved 10 tables for database: 20250621_022910_Database1_be.accdb
+2025-06-21 02:29:12,517 - database - WARNING - Cached connection invalid for /app/uploads/20250621_022910_Database1_be.accdb: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
+2025-06-21 02:29:12,524 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_022910_Database1_be.accdb
+2025-06-21 02:29:12,550 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+2025-06-21 02:29:13,534 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_022910_Database1_be.accdb
+2025-06-21 02:29:13,558 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+2025-06-21 02:29:16,979 - database - WARNING - Cached connection invalid for /app/uploads/20250621_022910_Database1_be.accdb: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
+2025-06-21 02:29:16,986 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_022910_Database1_be.accdb
+2025-06-21 02:29:17,011 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+2025-06-21 02:29:17,882 - database - WARNING - Cached connection invalid for /app/uploads/20250621_022910_Database1_be.accdb: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
+2025-06-21 02:29:17,890 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_022910_Database1_be.accdb
+2025-06-21 02:29:17,919 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+2025-06-21 02:29:23,746 - upload - INFO - File saved: 20250621_022923_Car_Database.db (original: Car_Database.db, size: 65536)
+2025-06-21 02:29:23,765 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:29:23,782 - upload - INFO - Database uploaded successfully: 20250621_022923_Car_Database.db
+2025-06-21 02:29:23,812 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_022910_Database1_be.accdb
+2025-06-21 02:29:23,842 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:29:23,855 - database - INFO - Retrieved 11 tables for database: 20250621_022923_Car_Database.db
+2025-06-21 02:29:24,904 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:29:31,586 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_022910_Database1_be.accdb
+2025-06-21 02:29:34,239 - database - INFO - Retrieved 11 tables for database: 20250621_022923_Car_Database.db
+2025-06-21 02:29:36,644 - database - WARNING - Cached connection invalid for /app/uploads/20250621_022910_Database1_be.accdb: ('0000', "[0000] Couldn't parse SQL\n (1) (SQLExecDirectW)")
+2025-06-21 02:29:36,652 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_022910_Database1_be.accdb
+2025-06-21 02:29:36,658 - database - INFO - Retrieved 10 tables for database: 20250621_022910_Database1_be.accdb
+2025-06-21 02:32:13,951 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:32:14,047 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:32:17,080 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:32:17,081 - database - INFO - Retrieved 11 tables for database: 20250621_022923_Car_Database.db
+2025-06-21 02:32:20,334 - upload - INFO - File saved: 20250621_023220_Database1_be.accdb (original: Database1_be.accdb, size: 983040)
+2025-06-21 02:32:20,355 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:32:20,362 - upload - INFO - Database uploaded successfully: 20250621_023220_Database1_be.accdb
+2025-06-21 02:32:20,391 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:32:20,419 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:32:20,427 - database - INFO - Retrieved 10 tables for database: 20250621_023220_Database1_be.accdb
+2025-06-21 02:32:23,294 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+2025-06-21 02:32:24,692 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+2025-06-21 02:32:31,459 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:32:31,495 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+2025-06-21 02:32:43,878 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+2025-06-21 02:34:55,778 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:34:55,788 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:34:58,738 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:34:58,744 - database - INFO - Retrieved 10 tables for database: 20250621_023220_Database1_be.accdb
+2025-06-21 02:34:59,648 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:34:59,673 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+2025-06-21 02:35:01,028 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:35:01,062 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+2025-06-21 02:39:39,011 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:39:39,020 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:39:42,024 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:39:42,029 - database - INFO - Retrieved 10 tables for database: 20250621_023220_Database1_be.accdb
+2025-06-21 02:39:43,071 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='Employees'
+2025-06-21 02:39:43,081 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:39:43,106 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+Traceback (most recent call last):
+  File "/app/dbviewer.py", line 952, in view_table
+    total_pages = (total_count + per_page - 1) // per_page
+TypeError: can only concatenate str (not "int") to str
+2025-06-21 02:41:24,206 - database - INFO - Successfully connected to SQLite DB: /app/uploads/20250621_022923_Car_Database.db
+2025-06-21 02:41:24,216 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:41:27,754 - database - INFO - Successfully connected to Access DB: /app/uploads/20250621_023220_Database1_be.accdb
+2025-06-21 02:41:27,760 - database - INFO - Retrieved 10 tables for database: 20250621_023220_Database1_be.accdb
+2025-06-21 02:41:28,693 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='NorthwindFeatures'
+2025-06-21 02:41:28,736 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+Traceback (most recent call last):
+  File "/app/dbviewer.py", line 937, in view_table
+    total_pages = (total_count + per_page - 1) // per_page
+TypeError: can only concatenate str (not "int") to str
+2025-06-21 02:41:29,806 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='Employees'
+2025-06-21 02:41:29,836 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+Traceback (most recent call last):
+  File "/app/dbviewer.py", line 937, in view_table
+    total_pages = (total_count + per_page - 1) // per_page
+TypeError: can only concatenate str (not "int") to str
+2025-06-21 02:41:30,705 - dbviewer - INFO - VIEW_TABLE: Entered for db='20250621_023220_Database1_be.accdb', table='Customers'
+2025-06-21 02:41:30,733 - dbviewer - ERROR - Error viewing table: can only concatenate str (not "int") to str
+Traceback (most recent call last):
+  File "/app/dbviewer.py", line 937, in view_table
+    total_pages = (total_count + per_page - 1) // per_page
+TypeError: can only concatenate str (not "int") to str

@@ -102,15 +102,35 @@ def handle_database_error(func):
         try:
             return func(*args, **kwargs)
         except pyodbc.Error as e:
-            db_logger.error(f"Database error in {func.__name__}: {e}")
-            raise Exception(f"Database operation failed: {str(e)}")
+            error_details = format_pyodbc_error(e)
+            db_logger.error(f"Database error in {func.__name__}: {error_details}")
+            raise Exception(f"Database operation failed: {error_details}")
         except sqlite3.Error as e:
-            db_logger.error(f"SQLite error in {func.__name__}: {e}")
+            db_logger.error(f"SQLite error in {func.__name__}: {e}") # Assuming sqlite3.Error has a safe __str__
             raise Exception(f"SQLite operation failed: {str(e)}")
         except Exception as e:
+            # If 'e' is a ConnectionError wrapping a pyodbc.Error, its message is already formatted.
+            # If 'e' is some other exception, str(e) is standard.
             db_logger.error(f"Unexpected error in {func.__name__}: {e}")
             raise
     return wrapper
+
+def format_pyodbc_error(e: pyodbc.Error) -> str:
+    """Safely formats a pyodbc.Error into a string, ensuring all parts are strings."""
+    parts = []
+    if hasattr(e, 'args') and e.args:
+        sqlstate = e.args[0]
+        parts.append(f"SQLSTATE[{str(sqlstate)}]")
+        if len(e.args) > 1:
+            message = e.args[1]
+            parts.append(f"Message[{str(message)}]")
+        if len(e.args) > 2:
+            # Native error codes or other info
+            extra_info = [str(arg) for arg in e.args[2:]]
+            parts.append(f"Other[{', '.join(extra_info)}]")
+    else:
+        parts.append(str(e)) # Fallback to default string representation
+    return " ".join(parts)
 
 def validate_file_content(filepath: str) -> bool:
     """Validate file content beyond extension checking"""
@@ -207,9 +227,9 @@ def get_all_databases():
 def get_connection_string(filepath):
     """Generate connection string for Access database"""
     if filepath.endswith('.accdb'):
-        return f'DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={filepath};ExtendedAnsiSQL=1;'
+        return f'DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={filepath};'
     else:
-        return f'DRIVER={{Microsoft Access Driver (*.mdb)}};DBQ={filepath};ExtendedAnsiSQL=1;'
+        return f'DRIVER={{Microsoft Access Driver (*.mdb)}};DBQ={filepath};'
 
 @handle_database_error
 def get_db_connection(filepath: str):
@@ -226,7 +246,8 @@ def get_db_connection(filepath: str):
                 # Test the connection with a simple query
                 cursor = conn.cursor()
                 if isinstance(conn, pyodbc.Connection):
-                    cursor.execute("SELECT 1")
+                    # Use a query more likely to be supported by MDBTools
+                    cursor.execute("SELECT count(*) FROM MSysObjects")
                 else:  # SQLite
                     cursor.execute("SELECT 1")
                 cursor.fetchone()
@@ -235,7 +256,8 @@ def get_db_connection(filepath: str):
                 db_logger.debug(f"Reusing cached connection for {filepath}")
                 return conn
             except Exception as e:
-                db_logger.warning(f"Cached connection invalid for {filepath}: {e}")
+                error_details = format_pyodbc_error(e) if isinstance(e, pyodbc.Error) else str(e)
+                db_logger.warning(f"Cached connection invalid for {filepath}: {error_details}")
                 # Remove invalid connection from cache
                 connection_cache.pop(filepath, None)
         
@@ -267,13 +289,15 @@ def get_db_connection(filepath: str):
                 
                 # Test the connection
                 cursor = conn.cursor()
-                cursor.execute("SELECT 1")
+                # Use a query more likely to be supported by MDBTools
+                cursor.execute("SELECT count(*) FROM MSysObjects")
                 cursor.fetchone()
                 
                 db_logger.info(f"Successfully connected to Access DB: {filepath}")
             except Exception as e:
-                db_logger.error(f"Failed to connect to Access DB {filepath}: {e}")
-                raise ConnectionError(f"Failed to connect to Access database: {str(e)}")
+                error_details = format_pyodbc_error(e) if isinstance(e, pyodbc.Error) else str(e)
+                db_logger.error(f"Failed to connect to Access DB {filepath}: {error_details}")
+                raise ConnectionError(f"Failed to connect to Access database: {error_details}")
                 
         elif file_ext in ['sqlite', 'db']:
             try:
@@ -371,40 +395,84 @@ def get_table_info(conn, table_name):
             try:
                 for column in cursor.columns(table=table_name):
                     # Handle potential encoding issues safely
+                    # Robustly get column_name
                     try:
-                        column_name = str(column.column_name) if column.column_name else 'Unknown'
+                        raw_col_name = column.column_name
+                        if raw_col_name is None:
+                            column_name = f'Column_{len(columns) + 1}_unnamed'
+                        else:
+                            column_name = str(raw_col_name)
+                    except TypeError: # If accessing/converting column.column_name causes TypeError
+                        column_name = f'Column_{len(columns) + 1}_name_type_error'
+                        logger.warning(f"TypeError accessing column.column_name for table {table_name}, column index {len(columns)}")
                     except (UnicodeDecodeError, UnicodeEncodeError):
-                        column_name = f'Column_{len(columns) + 1}'
-                    
+                        column_name = f'Column_{len(columns) + 1}_name_unicode_error'
+                        logger.warning(f"UnicodeError accessing column.column_name for table {table_name}, column index {len(columns)}")
+
+                    # Robustly get type_name
                     try:
-                        type_name = str(column.type_name) if column.type_name else 'Unknown'
+                        raw_type_name = column.type_name
+                        if raw_type_name is None:
+                            type_name = 'UnknownType'
+                        else:
+                            type_name = str(raw_type_name)
+                    except TypeError:
+                        type_name = 'TypeTypeError'
+                        logger.warning(f"TypeError accessing column.type_name for table {table_name}, column index {len(columns)}")
                     except (UnicodeDecodeError, UnicodeEncodeError):
-                        type_name = 'Text'
+                        type_name = 'TypeTextUnicodeError'
+                        logger.warning(f"UnicodeError accessing column.type_name for table {table_name}, column index {len(columns)}")
                     
+                    # Robustly get column_size
+                    col_size = None
+                    try:
+                        # getattr itself might not cause TypeError for simple attribute access,
+                        # but if column_size resolves to a property method that raises it.
+                        raw_col_size = getattr(column, 'column_size', None)
+                        if raw_col_size is not None:
+                            col_size = int(raw_col_size) # Column size should be an int
+                    except TypeError: # If int(raw_col_size) fails or getattr internals fail
+                        col_size = -1 # Indicate error
+                        logger.warning(f"TypeError accessing/converting column.column_size for table {table_name}, column index {len(columns)}")
+                    except ValueError: # If int() conversion fails for non-numeric string
+                        col_size = -2 # Indicate conversion error
+                        logger.warning(f"ValueError converting column.column_size for table {table_name}, column index {len(columns)}")
+
                     columns.append({
                         'name': column_name,
                         'type': type_name,
-                        'size': getattr(column, 'column_size', None)
+                        'size': col_size
                     })
-            except Exception as e:
-                logger.warning(f"Error getting column metadata for table {table_name}: {e}")
+            except Exception as e: # This 'e' could be the TypeError if cursor.columns() or iteration fails early
+                logger.warning(f"Error getting column metadata for table {table_name} using cursor.columns(): {e}", exc_info=True)
                 # Fallback: try to get basic column info using a different method
                 try:
-                    cursor.execute(f"SELECT TOP 1 * FROM [{table_name}]")
+                    logger.info(f"Falling back to SELECT TOP 1 for table {table_name} column info.")
+                    cursor.execute(f"SELECT TOP 1 * FROM [{table_name}]") # Ensure table_name is safe
                     description = cursor.description
-                    for i, col_desc in enumerate(description):
-                        try:
-                            column_name = str(col_desc[0]) if col_desc[0] else f'Column_{i + 1}'
-                        except (UnicodeDecodeError, UnicodeEncodeError):
-                            column_name = f'Column_{i + 1}'
-                        
-                        columns.append({
-                            'name': column_name,
-                            'type': 'Text',
-                            'size': None
-                        })
+                    if description:
+                        for i, col_desc in enumerate(description):
+                            col_name_fb, type_name_fb, size_fb = f'Column_{i + 1}_fallback', 'Text', None
+                            try:
+                                raw_name = col_desc[0]
+                                col_name_fb = str(raw_name) if raw_name is not None else f'Column_{i + 1}_fb_unnamed'
+                            except TypeError:
+                                col_name_fb = f'Column_{i + 1}_fb_name_type_error'
+                                logger.warning(f"TypeError accessing col_desc[0] in fallback for table {table_name}, col index {i}")
+                            except (UnicodeDecodeError, UnicodeEncodeError):
+                                col_name_fb = f'Column_{i + 1}_fb_name_unicode_error'
+
+                            # For fallback, type_code (col_desc[1]) could be used to map to a name,
+                            # but for simplicity and robustness against unknown type_codes, stick to 'Text'.
+                            columns.append({
+                                'name': col_name_fb,
+                                'type': type_name_fb, 
+                                'size': size_fb
+                            })
+                    else:
+                        logger.warning(f"Fallback method for table {table_name} yielded no description.")
                 except Exception as fallback_e:
-                    logger.error(f"Fallback method also failed for table {table_name}: {fallback_e}")
+                    logger.error(f"Fallback method also failed for table {table_name}: {fallback_e}", exc_info=True)
                     # Last resort: create generic column info
                     columns = [{
                         'name': 'Column_1',
@@ -728,6 +796,7 @@ def get_tables_list(database_id):
 @limiter.limit("50 per minute")
 def view_table(database_id, table_name):
     """View table data with pagination and search - optimized for performance"""
+    logger.info(f"VIEW_TABLE: Entered for db='{database_id}', table='{table_name}'")
     try:
         # Validate inputs to prevent injection
         if not database_id or '..' in database_id or '/' in database_id:
@@ -762,122 +831,125 @@ def view_table(database_id, table_name):
         if len(search_term) > 100:
             search_term = search_term[:100]
         
-        conn = get_db_connection(filepath)
-        
-        # Get table info
-        # First, validate table_name to prevent SQL injection
-        all_tables = get_tables(conn)
-        if table_name not in all_tables:
-            logger.warning(f"Attempt to access non-existent or unauthorized table '{table_name}' in database '{database_id}'.")
-            return jsonify({'error': f"Table '{table_name}' not found or access denied."}), 404
+        try:
+            conn = get_db_connection(filepath)
+        except TypeError as te:
+            logger.error(f"VIEW_TABLE: TypeError during get_db_connection: {te}", exc_info=True)
+            raise
 
-        columns = get_table_info(conn, table_name)
-        if not columns:
-            # This case should ideally be less frequent if table_name is validated against get_tables first,
-            # but get_table_info might still fail for other reasons (e.g. permissions, corruption on a specific table).
-            logger.error(f"Could not get column info for validated table '{table_name}' in database '{database_id}'.")
-            return jsonify({'error': f"Could not retrieve column information for table '{table_name}'."}), 500
+        try:
+            all_tables = get_tables(conn)
+            if table_name not in all_tables:
+                logger.warning(f"Attempt to access non-existent or unauthorized table '{table_name}' in database '{database_id}'.")
+                return jsonify({'error': f"Table '{table_name}' not found or access denied."}), 404
+        except TypeError as te:
+            logger.error(f"VIEW_TABLE: TypeError during get_tables/table validation: {te}", exc_info=True)
+            raise
+
+        try:
+            columns = get_table_info(conn, table_name)
+            if not columns:
+                logger.error(f"Could not get column info for validated table '{table_name}' in database '{database_id}'.")
+                return jsonify({'error': f"Could not retrieve column information for table '{table_name}'."}), 500
+        except TypeError as te:
+            logger.error(f"VIEW_TABLE: TypeError during get_table_info: {te}", exc_info=True)
+            raise
         
-        # Calculate offset
         offset = (page - 1) * per_page
         
-        # Build and execute query
-        query, params = build_search_query(
-            table_name, columns, search_term, search_columns,
-            sort_column, sort_order, per_page, offset
-        )
-        
-        rows, description = execute_paginated_query(conn, query, params, per_page, offset)
-        
-        # Get total count
-        total_count = get_total_count(conn, table_name, columns, search_term, search_columns)
-        
-        # For filtered results, we need to get the actual filtered count
-        if search_term:
-            # Build count query with same WHERE clause
-            count_query, count_params = build_search_query(
-                table_name, columns, search_term, search_columns, '', '', 0, 0
+        try:
+            query, params = build_search_query(
+                table_name, columns, search_term, search_columns,
+                sort_column, sort_order, per_page, offset
             )
-            count_query = count_query.replace("SELECT *", "SELECT COUNT(*)")
-            
-            # Remove ORDER BY from count query if present
-            if "ORDER BY" in count_query.upper():
-                order_index = count_query.upper().find("ORDER BY")
-                count_query = count_query[:order_index].strip()
-            
-            count_cursor = conn.cursor()
-            count_cursor.execute(count_query, count_params)
-            filtered_count = count_cursor.fetchone()[0]
-        else:
-            filtered_count = total_count
+        except TypeError as te:
+            logger.error(f"VIEW_TABLE: TypeError during build_search_query: {te}", exc_info=True)
+            raise
         
-        # Format results
+        try:
+            rows, description = execute_paginated_query(conn, query, params, per_page, offset)
+        except TypeError as te:
+            logger.error(f"VIEW_TABLE: TypeError during execute_paginated_query: {te}", exc_info=True)
+            raise
+        
+        try:
+            total_count = get_total_count(conn, table_name, columns, search_term, search_columns)
+            if search_term:
+                count_query, count_params = build_search_query(
+                    table_name, columns, search_term, search_columns, '', '', 0, 0
+                )
+                count_query = count_query.replace("SELECT *", "SELECT COUNT(*)")
+                if "ORDER BY" in count_query.upper():
+                    order_index = count_query.upper().find("ORDER BY")
+                    count_query = count_query[:order_index].strip()
+                count_cursor = conn.cursor()
+                count_cursor.execute(count_query, count_params)
+                filtered_count = count_cursor.fetchone()[0]
+            else:
+                filtered_count = total_count
+        except TypeError as te:
+            logger.error(f"VIEW_TABLE: TypeError during get_total_count/filtered_count: {te}", exc_info=True)
+            raise
+        
         results = []
-        for row in rows:
-            row_dict = {}
-            for i, col in enumerate(description):
-                value = row[i]
-                # Handle different data types with robust encoding
-                if value is None:
-                    display_value = 'NULL'
-                elif isinstance(value, bytes):
+        # Initialize diagnostic variables for the formatting loop's error handler
+        row_idx_diag, i_diag, col_name_diag = -1, -1, ""
+        try:
+            for row_idx, row in enumerate(rows):
+                row_idx_diag = row_idx # Update diagnostic variable
+                row_dict = {}
+                for i, col in enumerate(description):
+                    i_diag = i # Update diagnostic variable
+                    col_name_diag = col[0] # Update diagnostic variable
+                    
+                    value = None
                     try:
-                        # Try to decode as UTF-8 first
-                        display_value = value.decode('utf-8')
-                    except UnicodeDecodeError:
-                        try:
-                            # Try other common encodings
-                            display_value = value.decode('latin-1')
+                        value = row[i]
+                    except TypeError:
+                        logger.warning(f"VIEW_TABLE: TypeError accessing row[{i_diag}] (col='{col_name_diag}') for db='{database_id}', table='{table_name}'. Assigning <Access Error>.", exc_info=True)
+                        value = "<Access Error>" # Placeholder for value that caused TypeError on access
+                    
+                    if value is None: display_value = 'NULL'
+                    elif value == "<Access Error>": display_value = value
+                    elif isinstance(value, bytes):
+                        try: display_value = value.decode('utf-8')
                         except UnicodeDecodeError:
-                            display_value = f'<Binary {len(value)} bytes>'
-                elif isinstance(value, datetime):
-                    display_value = value.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    try:
-                        display_value = str(value)
-                    except (UnicodeDecodeError, UnicodeEncodeError):
-                        try:
-                            # Try repr for problematic values
-                            display_value = repr(value)
-                        except Exception:
-                            display_value = '<Unable to display>'
-                    except Exception:
-                        display_value = '<Unable to display>'
-                
-                # Highlight search term
-                if search_term:
-                    display_value = highlight_search_term(display_value, search_term)
-                
-                row_dict[col[0]] = display_value
-            results.append(row_dict)
+                            try: display_value = value.decode('latin-1')
+                            except UnicodeDecodeError: display_value = f'<Binary {len(value)} bytes>'
+                    elif isinstance(value, datetime):
+                        display_value = value.strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        try: display_value = str(value)
+                        except (UnicodeDecodeError, UnicodeEncodeError):
+                            try: display_value = repr(value)
+                            except Exception: display_value = '<Unable to display>'
+                        except Exception: display_value = '<Unable to display>'
+                    
+                    if search_term:
+                        display_value = highlight_search_term(display_value, search_term)
+                    
+                    row_dict[col[0]] = display_value
+                results.append(row_dict)
+        except TypeError as te: # This specific trap for the whole loop might be redundant if individual accesses are safe
+            logger.error(f"VIEW_TABLE: TypeError during results formatting loop (outer) (last row_idx {row_idx_diag}): {te}", exc_info=True)
+            raise
         
-        # Calculate pagination info
         total_pages = (total_count + per_page - 1) // per_page
         
+        logger.info("VIEW_TABLE: Successfully processed request. Returning JSON.")
         return jsonify({
-            'success': True,
-            'data': results,
-            'columns': columns,
+            'success': True, 'data': results, 'columns': columns,
             'pagination': {
-                'page': page,
-                'per_page': per_page,
-                'total': total_count,
-                'filtered': filtered_count,
-                'total_pages': total_pages
+                'page': page, 'per_page': per_page, 'total': total_count,
+                'filtered': filtered_count, 'total_pages': total_pages
             },
-            'sort': {
-                'column': sort_column,
-                'order': sort_order
-            },
-            'search': {
-                'term': search_term,
-                'columns': search_columns
-            },
+            'sort': {'column': sort_column, 'order': sort_order},
+            'search': {'term': search_term, 'columns': search_columns},
             'database_id': database_id
         })
         
     except Exception as e:
-        logger.error(f"Error viewing table: {e}")
+        logger.error(f"Error viewing table: {e}", exc_info=True) # Added exc_info for general errors too
         return jsonify({'error': str(e)}), 500
 
 @app.route('/database/<database_id>/delete', methods=['DELETE'])
