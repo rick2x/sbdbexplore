@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Gems - Database Viewer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>Database Explorer</h1>
+                        <span class="subtitle">View & Analyze Microsoft Access Databases Online</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button id="help-btn" class="btn-ghost" title="Help & Documentation">
+                        <i class="fas fa-question-circle"></i>
+                        Help
+                    </button>
+                    <button id="refresh-btn" class="btn-secondary" style="display: none;" title="Refresh database list">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Hero Section -->
+            <section id="hero-section" class="hero-section">
+                <div class="hero-container">
+                    <div class="hero-content">
+                        <div class="hero-badge">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Secure & Private</span>
+                        </div>
+                        <h1 class="hero-title">Explore Your Access Databases Online</h1>
+                        <p class="hero-description">
+                            Upload and browse Microsoft Access database files (.mdb, .accdb) directly in your browser. 
+                            View tables, search data, and export results - no software installation required.
+                        </p>
+                        
+                        <div class="feature-highlights">
+                            <div class="feature-item">
+                                <i class="fas fa-upload"></i>
+                                <span>Drag & Drop Upload</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-search"></i>
+                                <span>Advanced Search</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-download"></i>
+                                <span>CSV Export</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-users"></i>
+                                <span>Multi-User Access</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="upload-card">
+                        <div class="upload-header">
+                            <h3>Get Started</h3>
+                            <p>Upload your first database file</p>
+                        </div>
+                        
+                        <div class="upload-area" id="upload-area">
+                            <div class="upload-content">
+                                <div class="upload-icon">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <h4>Drop your database file here</h4>
+                                <p>or click to browse</p>
+                                <button class="btn-primary btn-upload" onclick="document.getElementById('file-input').click()">
+                                    <i class="fas fa-folder-open"></i>
+                                    Choose Database File
+                                </button>
+                                <input type="file" id="file-input" accept=".mdb,.accdb" style="display: none;">
+                            </div>
+                        </div>
+                        
+                        <div class="upload-requirements">
+                            <div class="requirement-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Supports .mdb and .accdb files</span>
+                            </div>
+                            <div class="requirement-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Maximum file size: 100MB</span>
+                            </div>
+                            <div class="requirement-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Files are processed securely</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Upload Section (Simple) -->
+            <section id="upload-section" class="upload-section" style="display: none;">
+                <div class="upload-container">
+                    <div class="upload-prompt">
+                        <div class="upload-icon">
+                            <i class="fas fa-plus-circle"></i>
+                        </div>
+                        <h3>Upload Another Database</h3>
+                        <p>Add more database files to explore</p>
+                        
+                        <div class="upload-area-simple" id="upload-area-simple">
+                            <button class="btn-primary" onclick="document.getElementById('file-input-simple').click()">
+                                <i class="fas fa-upload"></i>
+                                Choose Database File
+                            </button>
+                            <input type="file" id="file-input-simple" accept=".mdb,.accdb" style="display: none;">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Database Explorer Section -->
+            <section id="explorer-section" class="explorer-section" style="display: none;">
+                <div class="explorer-container">
+                    <!-- Sidebar -->
+                    <aside class="sidebar">
+                        <div class="sidebar-header">
+                            <div class="sidebar-title">
+                                <h3>
+                                    <i class="fas fa-database"></i>
+                                    Your Databases
+                                </h3>
+                                <button id="upload-more-btn" class="btn-ghost btn-sm" title="Upload another database">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="database-selector" id="database-selector">
+                                <label for="database-select" class="select-label">Choose a database to explore:</label>
+                                <div class="select-wrapper">
+                                    <select id="database-select">
+                                        <option value="">Select a database...</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down select-icon"></i>
+                                </div>
+                                <div class="database-actions" id="database-actions" style="display: none;">
+                                    <button id="delete-db-btn" class="btn-danger btn-sm" title="Delete this database">
+                                        <i class="fas fa-trash-alt"></i>
+                                        Delete Database
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tables-section" id="tables-section" style="display: none;">
+                            <div class="tables-header">
+                                <h4>
+                                    <i class="fas fa-table"></i>
+                                    Tables in Database
+                                </h4>
+                                <div class="database-info" id="database-info">
+                                    <div class="database-meta">
+                                        <span id="database-name" class="database-name"></span>
+                                        <span id="table-count" class="table-count"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-search">
+                                <div class="search-input-wrapper">
+                                    <i class="fas fa-search"></i>
+                                    <input type="text" id="table-search" placeholder="Search tables...">
+                                </div>
+                            </div>
+                            <div class="table-list" id="table-list">
+                                <!-- Tables will be populated here -->
+                            </div>
+                        </div>
+                    </aside>
+
+                    <!-- Main Content Area -->
+                    <div class="content-area">
+                        <!-- Table Viewer -->
+                        <div id="table-viewer" class="table-viewer" style="display: none;">
+                            <!-- Table Header -->
+                            <div class="table-header">
+                                <div class="table-title">
+                                    <h2 id="current-table-name"></h2>
+                                    <div class="table-stats" id="table-stats"></div>
+                                </div>
+                                
+                                <!-- Search and Filters -->
+                                <div class="table-controls">
+                                    <div class="search-section">
+                                        <div class="search-container">
+                                            <i class="fas fa-search"></i>
+                                            <input type="text" id="search-input" placeholder="Search in table data...">
+                                            <button class="search-clear" id="search-clear" style="display: none;" title="Clear search">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                        <div class="search-filters">
+                                            <label for="search-columns">Search in:</label>
+                                            <select id="search-columns">
+                                                <option value="all">All Columns</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="view-controls">
+                                        <div class="rows-control">
+                                            <label for="per-page-select">Show:</label>
+                                            <select id="per-page-select">
+                                                <option value="10" selected>10 rows</option>
+                                                <option value="20">20 rows</option>
+                                                <option value="50">50 rows</option>
+                                                <option value="100">100 rows</option>
+                                            </select>
+                                        </div>
+                                        <button id="export-btn" class="btn-secondary" title="Export table data to CSV">
+                                            <i class="fas fa-download"></i>
+                                            Export CSV
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Table Content -->
+                            <div class="table-container" id="table-container">
+                                <div class="loading-spinner" id="table-loading">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <span>Loading table data...</span>
+                                </div>
+                                <table id="data-table" class="data-table" style="display: none;">
+                                    <thead id="table-head"></thead>
+                                    <tbody id="table-body"></tbody>
+                                </table>
+                            </div>
+
+                            <!-- Pagination -->
+                            <div class="pagination-container" id="pagination-container" style="display: none;">
+                                <div class="pagination-info" id="pagination-info"></div>
+                                <div class="pagination-controls" id="pagination-controls"></div>
+                            </div>
+                        </div>
+
+                        <!-- Welcome Message -->
+                        <div id="welcome-message" class="welcome-message">
+                            <div class="welcome-content" id="welcome-content">
+                                <div class="welcome-illustration">
+                                    <i class="fas fa-database"></i>
+                                    <i class="fas fa-arrow-right arrow-connector"></i>
+                                    <i class="fas fa-table"></i>
+                                </div>
+                                <h3>Ready to Explore</h3>
+                                <p>Select a database from the sidebar to start browsing its tables and data</p>
+                                <div class="welcome-tips">
+                                    <div class="tip-item">
+                                        <i class="fas fa-lightbulb"></i>
+                                        <span>Click on any table to view its contents</span>
+                                    </div>
+                                    <div class="tip-item">
+                                        <i class="fas fa-lightbulb"></i>
+                                        <span>Use the search bar to find specific data</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container" class="toast-container"></div>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay" style="display: none;">
+            <div class="loading-content">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Processing your database...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
